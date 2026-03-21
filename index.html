@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>3D Ground Grid Dual Sticks Reset</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      font-family: sans-serif;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      touch-action: none;
+    }
+
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 13px;
+      line-height: 1.5;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 10px 12px;
+      border-radius: 8px;
+      user-select: none;
+      z-index: 10;
+      max-width: 72vw;
+    }
+
+    #resetButton {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 20;
+      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(0,0,0,0.45);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    #resetButton:active {
+      background: rgba(255,255,255,0.15);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="info">
+    PC: ↑↓ 前後 / ←→ 平行移動 / A D 回転 / W S 見上げ見下ろし / Q E 上下 / R リセット<br>
+    スマホ: 左スティックで移動 / 右スティックでカメラ操作 / RESETで初期位置へ
+  </div>
+
+  <button id="resetButton">RESET</button>
+
+  <script>
+    // =========================
+    // 1. Canvas
+    // =========================
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const resetButton = document.getElementById("resetButton");
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    // =========================
+    // 2. ベクトル関数
+    // =========================
+    function vec(x, y, z) {
+      return { x, y, z };
+    }
+
+    function add(a, b) {
+      return vec(a.x + b.x, a.y + b.y, a.z + b.z);
+    }
+
+    function sub(a, b) {
+      return vec(a.x - b.x, a.y - b.y, a.z - b.z);
+    }
+
+    function mul(v, s) {
+      return vec(v.x * s, v.y * s, v.z * s);
+    }
+
+    function dot(a, b) {
+      return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+
+    function cross(a, b) {
+      return vec(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+      );
+    }
+
+    function length(v) {
+      return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    }
+
+    function normalize(v) {
+      const len = length(v);
+      if (len === 0) return vec(0, 0, 0);
+      return vec(v.x / len, v.y / len, v.z / len);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function sign(v) {
+      if (v > 0) return 1;
+      if (v < 0) return -1;
+      return 0;
+    }
+
+    // =========================
+    // 3. スティック入力カーブ
+    // =========================
+    // 小さい倒しはすごくゆっくり、大きく倒すと普通に動く
+    function applyStickCurve(v, deadzone = 0.08, exponent = 2.6) {
+      const a = Math.abs(v);
+      if (a < deadzone) return 0;
+
+      const normalized = (a - deadzone) / (1 - deadzone);
+      const curved = Math.pow(normalized, exponent);
+      return sign(v) * curved;
+    }
+
+    // =========================
+    // 4. カメラ
+    // =========================
+    const INITIAL_CAMERA = {
+      position: vec(0, 2, -8),
+      yaw: 0,
+      pitch: -0.25
+    };
+
+    const camera = {
+      position: vec(INITIAL_CAMERA.position.x, INITIAL_CAMERA.position.y, INITIAL_CAMERA.position.z),
+      yaw: INITIAL_CAMERA.yaw,
+      pitch: INITIAL_CAMERA.pitch
+    };
+
+    function resetCamera() {
+      camera.position = vec(INITIAL_CAMERA.position.x, INITIAL_CAMERA.position.y, INITIAL_CAMERA.position.z);
+      camera.yaw = INITIAL_CAMERA.yaw;
+      camera.pitch = INITIAL_CAMERA.pitch;
+
+      touchState.moveX = 0;
+      touchState.moveY = 0;
+      touchState.lookX = 0;
+      touchState.lookY = 0;
+    }
+
+    const worldUp = vec(0, 1, 0);
+
+    function getCameraBasis() {
+      const cp = Math.cos(camera.pitch);
+      const sp = Math.sin(camera.pitch);
+      const cy = Math.cos(camera.yaw);
+      const sy = Math.sin(camera.yaw);
+
+      const forward = normalize(vec(
+        sy * cp,
+        sp,
+        cy * cp
+      ));
+
+      let right = cross(forward, worldUp);
+
+      if (length(right) < 0.0001) {
+        right = vec(1, 0, 0);
+      } else {
+        right = normalize(right);
+      }
+
+      const up = normalize(cross(right, forward));
+
+      return { forward, right, up };
+    }
+
+    // =========================
+    // 5. 3D -> 2D 投影
+    // =========================
+    function projectPoint(p) {
+      const { forward, right, up } = getCameraBasis();
+      const v = sub(p, camera.position);
+
+      const X = dot(v, right);
+      const Y = dot(v, up);
+      const Z = dot(v, forward);
+
+      if (Z <= 0.05) {
+        return { visible: false };
+      }
+
+      const scale = 700;
+
+      const screenX = canvas.width / 2 + (scale * X) / Z;
+      const screenY = canvas.height / 2 - (scale * Y) / Z;
+
+      return {
+        visible: true,
+        x: screenX,
+        y: screenY,
+        z: Z
+      };
+    }
+
+    // =========================
+    // 6. 3D線描画
+    // =========================
+    function drawLine3D(a, b, color = "white", width = 1) {
+      const pa = projectPoint(a);
+      const pb = projectPoint(b);
+
+      if (!pa.visible || !pb.visible) return;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.stroke();
+    }
+
+    // =========================
+    // 7. 地面
+    // =========================
+    function drawGroundGrid() {
+      const xMin = -20;
+      const xMax = 20;
+      const zMin = 1;
+      const zMax = 40;
+      const step = 1;
+
+      for (let x = xMin; x <= xMax; x += step) {
+        const a = vec(x, 0, zMin);
+        const b = vec(x, 0, zMax);
+        const isMain = (x === 0);
+        drawLine3D(a, b, isMain ? "#ffffff" : "#666666", isMain ? 2 : 1);
+      }
+
+      for (let z = zMin; z <= zMax; z += step) {
+        const a = vec(xMin, 0, z);
+        const b = vec(xMax, 0, z);
+        const isMain = (z % 5 === 0);
+        drawLine3D(a, b, isMain ? "#888888" : "#444444", isMain ? 1.5 : 1);
+      }
+    }
+
+    // =========================
+    // 8. 座標軸
+    // =========================
+    function drawAxes() {
+      drawLine3D(vec(0, 0, 0), vec(3, 0, 0), "red", 2);
+      drawLine3D(vec(0, 0, 0), vec(0, 3, 0), "lime", 2);
+      drawLine3D(vec(0, 0, 0), vec(0, 0, 3), "cyan", 2);
+    }
+
+    // =========================
+    // 9. キー入力
+    // =========================
+    const keys = {};
+
+    window.addEventListener("keydown", (e) => {
+      keys[e.key] = true;
+
+      if (e.key === "r" || e.key === "R") {
+        resetCamera();
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.key] = false;
+    });
+
+    // =========================
+    // 10. スティック設定
+    // =========================
+    function getLeftStickBase() {
+      return {
+        x: 110,
+        y: canvas.height - 170
+      };
+    }
+
+    function getRightStickBase() {
+      return {
+        x: canvas.width - 110,
+        y: canvas.height - 170
+      };
+    }
+
+    const STICK_BASE_RADIUS = 60;
+    const STICK_KNOB_RADIUS = 26;
+    const STICK_MAX_DIST = 40;
+    const STICK_TOUCH_RANGE = 95;
+
+    // =========================
+    // 11. タッチ入力
+    // =========================
+    const touchState = {
+      moveId: null,
+      lookId: null,
+
+      moveXPos: 0,
+      moveYPos: 0,
+
+      lookXPos: 0,
+      lookYPos: 0,
+
+      moveX: 0,
+      moveY: 0,
+      lookX: 0,
+      lookY: 0
+    };
+
+    function setupTouchControls() {
+      canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+
+        const leftBase = getLeftStickBase();
+        const rightBase = getRightStickBase();
+
+        for (const t of e.changedTouches) {
+          const dxL = t.clientX - leftBase.x;
+          const dyL = t.clientY - leftBase.y;
+          const distL = Math.hypot(dxL, dyL);
+
+          const dxR = t.clientX - rightBase.x;
+          const dyR = t.clientY - rightBase.y;
+          const distR = Math.hypot(dxR, dyR);
+
+          if (distL <= STICK_TOUCH_RANGE && touchState.moveId === null) {
+            touchState.moveId = t.identifier;
+            touchState.moveXPos = t.clientX;
+            touchState.moveYPos = t.clientY;
+            continue;
+          }
+
+          if (distR <= STICK_TOUCH_RANGE && touchState.lookId === null) {
+            touchState.lookId = t.identifier;
+            touchState.lookXPos = t.clientX;
+            touchState.lookYPos = t.clientY;
+            continue;
+          }
+        }
+      }, { passive: false });
+
+      canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+
+        const leftBase = getLeftStickBase();
+        const rightBase = getRightStickBase();
+
+        for (const t of e.changedTouches) {
+          if (t.identifier === touchState.moveId) {
+            touchState.moveXPos = t.clientX;
+            touchState.moveYPos = t.clientY;
+
+            const dx = t.clientX - leftBase.x;
+            const dy = t.clientY - leftBase.y;
+            const dist = Math.hypot(dx, dy);
+
+            let mx = dx;
+            let my = dy;
+
+            if (dist > STICK_MAX_DIST && dist > 0) {
+              mx = dx * STICK_MAX_DIST / dist;
+              my = dy * STICK_MAX_DIST / dist;
+            }
+
+            touchState.moveX = clamp(mx / STICK_MAX_DIST, -1, 1);
+            touchState.moveY = clamp(my / STICK_MAX_DIST, -1, 1);
+          }
+
+          if (t.identifier === touchState.lookId) {
+            touchState.lookXPos = t.clientX;
+            touchState.lookYPos = t.clientY;
+
+            const dx = t.clientX - rightBase.x;
+            const dy = t.clientY - rightBase.y;
+            const dist = Math.hypot(dx, dy);
+
+            let lx = dx;
+            let ly = dy;
+
+            if (dist > STICK_MAX_DIST && dist > 0) {
+              lx = dx * STICK_MAX_DIST / dist;
+              ly = dy * STICK_MAX_DIST / dist;
+            }
+
+            touchState.lookX = clamp(lx / STICK_MAX_DIST, -1, 1);
+            touchState.lookY = clamp(ly / STICK_MAX_DIST, -1, 1);
+          }
+        }
+      }, { passive: false });
+
+      function endTouch(e) {
+        e.preventDefault();
+
+        for (const t of e.changedTouches) {
+          if (t.identifier === touchState.moveId) {
+            touchState.moveId = null;
+            touchState.moveX = 0;
+            touchState.moveY = 0;
+          }
+
+          if (t.identifier === touchState.lookId) {
+            touchState.lookId = null;
+            touchState.lookX = 0;
+            touchState.lookY = 0;
+          }
+        }
+      }
+
+      canvas.addEventListener("touchend", endTouch, { passive: false });
+      canvas.addEventListener("touchcancel", endTouch, { passive: false });
+    }
+
+    // =========================
+    // 12. リセットボタン
+    // =========================
+    resetButton.addEventListener("click", resetCamera);
+    resetButton.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      resetCamera();
+    }, { passive: false });
+
+    // =========================
+    // 13. カメラ更新
+    // =========================
+    function updateCamera() {
+      const { forward, right } = getCameraBasis();
+
+      const moveSpeed = 0.12;
+      const rotateSpeed = 0.025;
+      const verticalSpeed = 0.08;
+
+      // PC
+      if (keys["ArrowUp"]) {
+        camera.position = add(camera.position, mul(forward, moveSpeed));
+      }
+      if (keys["ArrowDown"]) {
+        camera.position = add(camera.position, mul(forward, -moveSpeed));
+      }
+      if (keys["ArrowLeft"]) {
+        camera.position = add(camera.position, mul(right, -moveSpeed));
+      }
+      if (keys["ArrowRight"]) {
+        camera.position = add(camera.position, mul(right, moveSpeed));
+      }
+      if (keys["a"] || keys["A"]) {
+        camera.yaw -= rotateSpeed;
+      }
+      if (keys["d"] || keys["D"]) {
+        camera.yaw += rotateSpeed;
+      }
+      if (keys["w"] || keys["W"]) {
+        camera.pitch += rotateSpeed;
+      }
+      if (keys["s"] || keys["S"]) {
+        camera.pitch -= rotateSpeed;
+      }
+      if (keys["q"] || keys["Q"]) {
+        camera.position.y += verticalSpeed;
+      }
+      if (keys["e"] || keys["E"]) {
+        camera.position.y -= verticalSpeed;
+      }
+
+      // スマホ入力をカーブ加工
+      const moveInputX = applyStickCurve(touchState.moveX, 0.08, 2.8);
+      const moveInputY = applyStickCurve(touchState.moveY, 0.08, 2.8);
+      const lookInputX = applyStickCurve(touchState.lookX, 0.10, 3.2);
+      const lookInputY = applyStickCurve(touchState.lookY, 0.10, 3.2);
+
+      // スマホ: 左スティック移動
+      if (touchState.moveId !== null) {
+        camera.position = add(camera.position, mul(right, moveInputX * moveSpeed));
+        camera.position = add(camera.position, mul(forward, -moveInputY * moveSpeed));
+      }
+
+      // スマホ: 右スティック視点操作（左右反転版）
+      if (touchState.lookId !== null) {
+        const stickLookSpeed = 0.06;
+        camera.yaw -= lookInputX * stickLookSpeed;
+        camera.pitch -= lookInputY * stickLookSpeed;
+      }
+
+      // pitch制限
+      const limit = Math.PI / 2 - 0.05;
+      if (camera.pitch > limit) camera.pitch = limit;
+      if (camera.pitch < -limit) camera.pitch = -limit;
+    }
+
+    // =========================
+    // 14. 背景・UI
+    // =========================
+    function drawBackground() {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function drawDebugText() {
+      ctx.fillStyle = "white";
+      ctx.font = "14px sans-serif";
+      ctx.fillText(
+        `camera: (${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)})`,
+        10,
+        canvas.height - 40
+      );
+      ctx.fillText(
+        `yaw: ${camera.yaw.toFixed(2)}   pitch: ${camera.pitch.toFixed(2)}`,
+        10,
+        canvas.height - 20
+      );
+    }
+
+    function drawStick(base, knobX, knobY, colorStroke, colorFill) {
+      ctx.strokeStyle = colorStroke;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(base.x, base.y, STICK_BASE_RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(base.x, base.y, 8, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = colorFill;
+      ctx.beginPath();
+      ctx.arc(knobX, knobY, STICK_KNOB_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawTouchUI() {
+      const leftBase = getLeftStickBase();
+      const rightBase = getRightStickBase();
+
+      let leftKnobX = leftBase.x;
+      let leftKnobY = leftBase.y;
+
+      if (touchState.moveId !== null) {
+        const dx = touchState.moveXPos - leftBase.x;
+        const dy = touchState.moveYPos - leftBase.y;
+        const dist = Math.hypot(dx, dy);
+
+        let mx = dx;
+        let my = dy;
+
+        if (dist > STICK_MAX_DIST && dist > 0) {
+          mx = dx * STICK_MAX_DIST / dist;
+          my = dy * STICK_MAX_DIST / dist;
+        }
+
+        leftKnobX = leftBase.x + mx;
+        leftKnobY = leftBase.y + my;
+      }
+
+      let rightKnobX = rightBase.x;
+      let rightKnobY = rightBase.y;
+
+      if (touchState.lookId !== null) {
+        const dx = touchState.lookXPos - rightBase.x;
+        const dy = touchState.lookYPos - rightBase.y;
+        const dist = Math.hypot(dx, dy);
+
+        let lx = dx;
+        let ly = dy;
+
+        if (dist > STICK_MAX_DIST && dist > 0) {
+          lx = dx * STICK_MAX_DIST / dist;
+          ly = dy * STICK_MAX_DIST / dist;
+        }
+
+        rightKnobX = rightBase.x + lx;
+        rightKnobY = rightBase.y + ly;
+      }
+
+      drawStick(
+        leftBase,
+        leftKnobX,
+        leftKnobY,
+        "rgba(255,255,255,0.35)",
+        "rgba(255,255,255,0.25)"
+      );
+
+      drawStick(
+        rightBase,
+        rightKnobX,
+        rightKnobY,
+        "rgba(100,180,255,0.45)",
+        "rgba(100,180,255,0.28)"
+      );
+    }
+
+    // =========================
+    // 15. ループ
+    // =========================
+    function loop() {
+      updateCamera();
+      drawBackground();
+      drawGroundGrid();
+      drawAxes();
+      drawTouchUI();
+      drawDebugText();
+
+      requestAnimationFrame(loop);
+    }
+
+    setupTouchControls();
+    loop();
+  </script>
+</body>
+</html>
