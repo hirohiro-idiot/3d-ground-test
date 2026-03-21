@@ -507,7 +507,7 @@
 
       // スマホ: 右スティック視点操作（左右反転版）
       if (touchState.lookId !== null) {
-        const stickLookSpeed = 0.06;
+        const stickLookSpeed = 0.01;
         camera.yaw -= lookInputX * stickLookSpeed;
         camera.pitch -= lookInputY * stickLookSpeed;
       }
