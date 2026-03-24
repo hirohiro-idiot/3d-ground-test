@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>3D Ground Triple Sticks + Figure Menu</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      font-family: sans-serif;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      touch-action: none;
+    }
+
+    #topbar {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      right: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      z-index: 30;
+      pointer-events: none;
+    }
+
+    #leftMenu {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .uiButton {
+      pointer-events: auto;
+      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(0,0,0,0.55);
+      color: white;
+      padding: 6px 10px;
+      border-radius: 9px;
+      font-size: 11px;
+      touch-action: manipulation;
+      user-select: none;
+      text-align: left;
+    }
+
+    .uiButton:active {
+      background: rgba(255,255,255,0.15);
+    }
+
+    #info {
+      position: absolute;
+      top: 48px;
+      left: 8px;
+      color: white;
+      font-size: 11px;
+      line-height: 1.45;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 10px;
+      border-radius: 8px;
+      user-select: none;
+      z-index: 10;
+      max-width: 72vw;
+      display: none;
+    }
+
+    #jointPanel {
+      position: absolute;
+      top: 48px;
+      right: 8px;
+      width: 220px;
+      max-width: 66vw;
+      color: white;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      padding: 10px;
+      z-index: 25;
+      display: none;
+      pointer-events: auto;
+    }
+
+    #jointPanel h3 {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .jointRow {
+      margin-bottom: 8px;
+    }
+
+    .jointRow label {
+      display: block;
+      font-size: 11px;
+      margin-bottom: 3px;
+    }
+
+    .jointRow .value {
+      float: right;
+      opacity: 0.8;
+    }
+
+    .jointRow input[type="range"] {
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="topbar">
+    <div id="leftMenu">
+      <button id="addFigureButton" class="uiButton">人形を追加</button>
+      <button id="deleteFigureButton" class="uiButton">人形削除</button>
+      <button id="toggleJointPanelButton" class="uiButton">可動バー: OFF</button>
+      <button id="toggleInfoButton" class="uiButton">操作説明: OFF</button>
+    </div>
+
+    <button id="resetButton" class="uiButton">RESET</button>
+  </div>
+
+  <div id="info">
+    PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし / Q E 上下 / R リセット<br>
+    スマホ:<br>
+    左下 下スティック = 人形なし: 地面平行移動 / 人形あり: 被写体中心の横回転・縦回転<br>
+    左下 上スティック = 画面基準の上下左右移動<br>
+    右スティック = 近づく・離れる
+  </div>
+
+  <div id="jointPanel">
+    <h3>関節操作</h3>
+
+    <div class="jointRow">
+      <label>左肩 <span id="val-shoulderL" class="value">0</span></label>
+      <input id="slider-shoulderL" type="range" min="-120" max="120" value="0" />
+    </div>
+
+    <div class="jointRow">
+      <label>左肘 <span id="val-elbowL" class="value">0</span></label>
+      <input id="slider-elbowL" type="range" min="-150" max="150" value="0" />
+    </div>
+
+    <div class="jointRow">
+      <label>右肩 <span id="val-shoulderR" class="value">0</span></label>
+      <input id="slider-shoulderR" type="range" min="-120" max="120" value="0" />
+    </div>
+
+    <div class="jointRow">
+      <label>右肘 <span id="val-elbowR" class="value">0</span></label>
+      <input id="slider-elbowR" type="range" min="-150" max="150" value="0" />
+    </div>
+
+    <div class="jointRow">
+      <label>左股関節 <span id="val-hipL" class="value">0</span></label>
+      <input id="slider-hipL" type="range" min="-120" max="120" value="0" />
+    </div>
+
+    <div class="jointRow">
+      <label>左膝 <span id="val-kneeL" class="value">0</span></label>
+      <input id="slider-kneeL" type="range" min="-150" max="150" value="0" />
+    </div>
+
+    <div class="jointRow">
+      <label>右股関節 <span id="val-hipR" class="value">0</span></label>
+      <input id="slider-hipR" type="range" min="-120" max="120" value="0" />
+    </div>
+
+    <div class="jointRow">
+      <label>右膝 <span id="val-kneeR" class="value">0</span></label>
+      <input id="slider-kneeR" type="range" min="-150" max="150" value="0" />
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const resetButton = document.getElementById("resetButton");
+    const addFigureButton = document.getElementById("addFigureButton");
+    const deleteFigureButton = document.getElementById("deleteFigureButton");
+    const toggleJointPanelButton = document.getElementById("toggleJointPanelButton");
+    const toggleInfoButton = document.getElementById("toggleInfoButton");
+    const jointPanel = document.getElementById("jointPanel");
+    const infoPanel = document.getElementById("info");
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    function vec(x, y, z) {
+      return { x, y, z };
+    }
+
+    function add(a, b) {
+      return vec(a.x + b.x, a.y + b.y, a.z + b.z);
+    }
+
+    function sub(a, b) {
+      return vec(a.x - b.x, a.y - b.y, a.z - b.z);
+    }
+
+    function mul(v, s) {
+      return vec(v.x * s, v.y * s, v.z * s);
+    }
+
+    function dot(a, b) {
+      return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+
+    function cross(a, b) {
+      return vec(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+      );
+    }
+
+    function length(v) {
+      return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    }
+
+    function normalize(v) {
+      const len = length(v);
+      if (len === 0) return vec(0, 0, 0);
+      return vec(v.x / len, v.y / len, v.z / len);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function sign(v) {
+      if (v > 0) return 1;
+      if (v < 0) return -1;
+      return 0;
+    }
+
+    function degToRad(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    function applyStickCurve(v, deadzone = 0.08, exponent = 2.6) {
+      const a = Math.abs(v);
+      if (a < deadzone) return 0;
+      const normalized = (a - deadzone) / (1 - deadzone);
+      const curved = Math.pow(normalized, exponent);
+      return sign(v) * curved;
+    }
+
+    const INITIAL_CAMERA = {
+      position: vec(0, 2, -8),
+      yaw: 0,
+      pitch: -0.25
+    };
+
+    const camera = {
+      position: vec(INITIAL_CAMERA.position.x, INITIAL_CAMERA.position.y, INITIAL_CAMERA.position.z),
+      yaw: INITIAL_CAMERA.yaw,
+      pitch: INITIAL_CAMERA.pitch
+    };
+
+    const worldUp = vec(0, 1, 0);
+
+    function resetCamera() {
+      camera.position = vec(INITIAL_CAMERA.position.x, INITIAL_CAMERA.position.y, INITIAL_CAMERA.position.z);
+      camera.yaw = INITIAL_CAMERA.yaw;
+      camera.pitch = INITIAL_CAMERA.pitch;
+
+      touchState.groundX = 0;
+      touchState.groundY = 0;
+      touchState.screenX = 0;
+      touchState.screenY = 0;
+      touchState.lookX = 0;
+      touchState.lookY = 0;
+    }
+
+    function getCameraBasis() {
+      const cp = Math.cos(camera.pitch);
+      const sp = Math.sin(camera.pitch);
+      const cy = Math.cos(camera.yaw);
+      const sy = Math.sin(camera.yaw);
+
+      const forward = normalize(vec(
+        sy * cp,
+        sp,
+        cy * cp
+      ));
+
+      let right = cross(forward, worldUp);
+      if (length(right) < 0.0001) {
+        right = vec(1, 0, 0);
+      } else {
+        right = normalize(right);
+      }
+
+      const up = normalize(cross(right, forward));
+      return { forward, right, up };
+    }
+
+    function projectPoint(p) {
+      const { forward, right, up } = getCameraBasis();
+      const v = sub(p, camera.position);
+
+      const X = dot(v, right);
+      const Y = dot(v, up);
+      const Z = dot(v, forward);
+
+      if (Z <= 0.05) return { visible: false };
+
+      const scale = 700;
+      return {
+        visible: true,
+        x: canvas.width / 2 + (scale * X) / Z,
+        y: canvas.height / 2 - (scale * Y) / Z,
+        z: Z
+      };
+    }
+
+    function drawLine3D(a, b, color = "white", width = 1) {
+      const pa = projectPoint(a);
+      const pb = projectPoint(b);
+      if (!pa.visible || !pb.visible) return;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.stroke();
+    }
+
+    function drawPoint3D(p, color = "white", size = 4) {
+      const pp = projectPoint(p);
+      if (!pp.visible) return;
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(pp.x, pp.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawGroundGrid() {
+      const xMin = -20;
+      const xMax = 20;
+      const zMin = 1;
+      const zMax = 40;
+      const step = 1;
+
+      for (let x = xMin; x <= xMax; x += step) {
+        const a = vec(x, 0, zMin);
+        const b = vec(x, 0, zMax);
+        const isMain = (x === 0);
+        drawLine3D(a, b, isMain ? "#ffffff" : "#666666", isMain ? 2 : 1);
+      }
+
+      for (let z = zMin; z <= zMax; z += step) {
+        const a = vec(xMin, 0, z);
+        const b = vec(xMax, 0, z);
+        const isMain = (z % 5 === 0);
+        drawLine3D(a, b, isMain ? "#888888" : "#444444", isMain ? 1.5 : 1);
+      }
+    }
+
+    function drawAxes() {
+      drawLine3D(vec(0, 0, 0), vec(3, 0, 0), "red", 2);
+      drawLine3D(vec(0, 0, 0), vec(0, 3, 0), "lime", 2);
+      drawLine3D(vec(0, 0, 0), vec(0, 0, 3), "cyan", 2);
+    }
+
+    const figures = [];
+    let selectedFigureId = null;
+    let nextFigureId = 1;
+    let jointPanelEnabled = false;
+    let infoEnabled = false;
+
+    function createFigure(x = 0, y = 0, z = 8) {
+      return {
+        id: nextFigureId++,
+        x,
+        y,
+        z,
+        joints: {
+          shoulderL: 0,
+          elbowL: 0,
+          shoulderR: 0,
+          elbowR: 0,
+          hipL: 0,
+          kneeL: 0,
+          hipR: 0,
+          kneeR: 0
+        }
+      };
+    }
+
+    function getSelectedFigure() {
+      return figures.find(f => f.id === selectedFigureId) || null;
+    }
+
+    function hasFigure() {
+      return !!getSelectedFigure();
+    }
+
+    function getFigureTarget(fig) {
+      return vec(fig.x, fig.y + 1.0, fig.z);
+    }
+
+    const jointKeys = [
+      "shoulderL", "elbowL", "shoulderR", "elbowR",
+      "hipL", "kneeL", "hipR", "kneeR"
+    ];
+
+    function updatePanels() {
+      const fig = getSelectedFigure();
+      jointPanel.style.display = (fig && jointPanelEnabled) ? "block" : "none";
+      infoPanel.style.display = infoEnabled ? "block" : "none";
+      toggleJointPanelButton.textContent = `可動バー: ${jointPanelEnabled ? "ON" : "OFF"}`;
+      toggleInfoButton.textContent = `操作説明: ${infoEnabled ? "ON" : "OFF"}`;
+    }
+
+    function syncJointPanelFromFigure() {
+      const fig = getSelectedFigure();
+      if (!fig) return;
+
+      for (const key of jointKeys) {
+        const slider = document.getElementById(`slider-${key}`);
+        const value = document.getElementById(`val-${key}`);
+        slider.value = fig.joints[key];
+        value.textContent = fig.joints[key];
+      }
+    }
+
+    for (const key of jointKeys) {
+      const slider = document.getElementById(`slider-${key}`);
+      const value = document.getElementById(`val-${key}`);
+
+      slider.addEventListener("input", () => {
+        const fig = getSelectedFigure();
+        if (!fig) return;
+        fig.joints[key] = Number(slider.value);
+        value.textContent = slider.value;
+      });
+    }
+
+    addFigureButton.addEventListener("click", () => {
+      const figure = createFigure(0, 0, 8);
+      figures.push(figure);
+      selectedFigureId = figure.id;
+      jointPanelEnabled = true;
+      updatePanels();
+      syncJointPanelFromFigure();
+    });
+
+    deleteFigureButton.addEventListener("click", () => {
+      const fig = getSelectedFigure();
+      if (!fig) return;
+
+      const index = figures.findIndex(f => f.id === fig.id);
+      if (index >= 0) figures.splice(index, 1);
+
+      selectedFigureId = figures.length ? figures[figures.length - 1].id : null;
+      if (!selectedFigureId) jointPanelEnabled = false;
+
+      updatePanels();
+      syncJointPanelFromFigure();
+    });
+
+    toggleJointPanelButton.addEventListener("click", () => {
+      jointPanelEnabled = !jointPanelEnabled;
+      updatePanels();
+      if (jointPanelEnabled) syncJointPanelFromFigure();
+    });
+
+    toggleInfoButton.addEventListener("click", () => {
+      infoEnabled = !infoEnabled;
+      updatePanels();
+    });
+
+    function computeStickFigurePose(fig) {
+      const baseX = fig.x;
+      const baseY = fig.y;
+      const baseZ = fig.z;
+
+      const pelvis = vec(baseX, baseY + 0.80, baseZ);
+      const chest  = vec(baseX, baseY + 1.20, baseZ);
+      const neck   = vec(baseX, baseY + 1.50, baseZ);
+      const head   = vec(baseX, baseY + 1.80, baseZ);
+
+      const shoulderL = vec(baseX - 0.28, baseY + 1.20, baseZ);
+      const shoulderR = vec(baseX + 0.28, baseY + 1.20, baseZ);
+
+      const hipL = vec(baseX - 0.18, baseY + 0.80, baseZ);
+      const hipR = vec(baseX + 0.18, baseY + 0.80, baseZ);
+
+      const upperArm = 0.40;
+      const lowerArm = 0.35;
+      const upperLeg = 0.45;
+      const lowerLeg = 0.40;
+
+      function limbEnd(base, len, angleDeg, side) {
+        const a = degToRad(angleDeg);
+        return vec(
+          base.x + side * len * Math.sin(a),
+          base.y - len * Math.cos(a),
+          base.z
+        );
+      }
+
+      function limbEndFrom(base, len, totalAngleDeg, side) {
+        const a = degToRad(totalAngleDeg);
+        return vec(
+          base.x + side * len * Math.sin(a),
+          base.y - len * Math.cos(a),
+          base.z
+        );
+      }
+
+      const elbowL = limbEnd(shoulderL, upperArm, fig.joints.shoulderL, -1);
+      const handL  = limbEndFrom(elbowL, lowerArm, fig.joints.shoulderL + fig.joints.elbowL, -1);
+
+      const elbowR = limbEnd(shoulderR, upperArm, fig.joints.shoulderR, 1);
+      const handR  = limbEndFrom(elbowR, lowerArm, fig.joints.shoulderR + fig.joints.elbowR, 1);
+
+      const kneeL = limbEnd(hipL, upperLeg, fig.joints.hipL, -1);
+      const footL = limbEndFrom(kneeL, lowerLeg, fig.joints.hipL + fig.joints.kneeL, -1);
+
+      const kneeR = limbEnd(hipR, upperLeg, fig.joints.hipR, 1);
+      const footR = limbEndFrom(kneeR, lowerLeg, fig.joints.hipR + fig.joints.kneeR, 1);
+
+      return {
+        head, neck, chest, pelvis,
+        shoulderL, shoulderR,
+        elbowL, elbowR,
+        handL, handR,
+        hipL, hipR,
+        kneeL, kneeR,
+        footL, footR
+      };
+    }
+
+    function drawStickFigure(fig) {
+      const p = computeStickFigurePose(fig);
+
+      drawLine3D(p.head, p.neck, "white", 2);
+      drawLine3D(p.neck, p.chest, "white", 2);
+      drawLine3D(p.chest, p.pelvis, "white", 2);
+
+      drawLine3D(p.chest, p.shoulderL, "white", 2);
+      drawLine3D(p.shoulderL, p.elbowL, "white", 2);
+      drawLine3D(p.elbowL, p.handL, "white", 2);
+
+      drawLine3D(p.chest, p.shoulderR, "white", 2);
+      drawLine3D(p.shoulderR, p.elbowR, "white", 2);
+      drawLine3D(p.elbowR, p.handR, "white", 2);
+
+      drawLine3D(p.pelvis, p.hipL, "white", 2);
+      drawLine3D(p.hipL, p.kneeL, "white", 2);
+      drawLine3D(p.kneeL, p.footL, "white", 2);
+
+      drawLine3D(p.pelvis, p.hipR, "white", 2);
+      drawLine3D(p.hipR, p.kneeR, "white", 2);
+      drawLine3D(p.kneeR, p.footR, "white", 2);
+
+      drawPoint3D(p.head, "#ffffff", 4);
+      drawPoint3D(p.neck, "#dddddd", 2.5);
+      drawPoint3D(p.chest, "#dddddd", 2.5);
+      drawPoint3D(p.pelvis, "#dddddd", 2.5);
+    }
+
+    const keys = {};
+
+    window.addEventListener("keydown", (e) => {
+      keys[e.key] = true;
+      if (e.key === "r" || e.key === "R") resetCamera();
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.key] = false;
+    });
+
+    function getGroundStickBase() {
+      return {
+        x: 78,
+        y: canvas.height - 150
+      };
+    }
+
+    function getScreenStickBase() {
+      return {
+        x: 78,
+        y: canvas.height - 220
+      };
+    }
+
+    function getLookStickBase() {
+      return {
+        x: canvas.width - 78,
+        y: canvas.height - 150
+      };
+    }
+
+    // 今の半分くらい
+    const STICK_BASE_RADIUS = 15;
+    const STICK_KNOB_RADIUS = 6.5;
+    const STICK_MAX_DIST = 10;
+    const STICK_TOUCH_RANGE = 24;
+
+    const GROUND_STICK_TOUCH_OFFSET_Y = 70;
+    const SCREEN_STICK_TOUCH_OFFSET_Y = 70;
+    const LOOK_STICK_TOUCH_OFFSET_Y = 70;
+
+    const touchState = {
+      groundId: null,
+      screenId: null,
+      lookId: null,
+
+      groundXPos: 0,
+      groundYPos: 0,
+      screenXPos: 0,
+      screenYPos: 0,
+      lookXPos: 0,
+      lookYPos: 0,
+
+      groundX: 0,
+      groundY: 0,
+      screenX: 0,
+      screenY: 0,
+      lookX: 0,
+      lookY: 0
+    };
+
+    function setupTouchControls() {
+      canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+
+        const groundBase = getGroundStickBase();
+        const screenBase = getScreenStickBase();
+        const lookBase = getLookStickBase();
+
+        for (const t of e.changedTouches) {
+          const adjustedGroundY = t.clientY - GROUND_STICK_TOUCH_OFFSET_Y;
+          const adjustedScreenY = t.clientY - SCREEN_STICK_TOUCH_OFFSET_Y;
+          const adjustedLookY = t.clientY - LOOK_STICK_TOUCH_OFFSET_Y;
+
+          const distGround = Math.hypot(t.clientX - groundBase.x, adjustedGroundY - groundBase.y);
+          const distScreen = Math.hypot(t.clientX - screenBase.x, adjustedScreenY - screenBase.y);
+          const distLook = Math.hypot(t.clientX - lookBase.x, adjustedLookY - lookBase.y);
+
+          if (distGround <= STICK_TOUCH_RANGE && touchState.groundId === null) {
+            touchState.groundId = t.identifier;
+            touchState.groundXPos = t.clientX;
+            touchState.groundYPos = adjustedGroundY;
+            continue;
+          }
+
+          if (distScreen <= STICK_TOUCH_RANGE && touchState.screenId === null) {
+            touchState.screenId = t.identifier;
+            touchState.screenXPos = t.clientX;
+            touchState.screenYPos = adjustedScreenY;
+            continue;
+          }
+
+          if (distLook <= STICK_TOUCH_RANGE && touchState.lookId === null) {
+            touchState.lookId = t.identifier;
+            touchState.lookXPos = t.clientX;
+            touchState.lookYPos = adjustedLookY;
+            continue;
+          }
+        }
+      }, { passive: false });
+
+      canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+
+        const groundBase = getGroundStickBase();
+        const screenBase = getScreenStickBase();
+        const lookBase = getLookStickBase();
+
+        for (const t of e.changedTouches) {
+          if (t.identifier === touchState.groundId) {
+            const ay = t.clientY - GROUND_STICK_TOUCH_OFFSET_Y;
+            touchState.groundXPos = t.clientX;
+            touchState.groundYPos = ay;
+
+            const dx = t.clientX - groundBase.x;
+            const dy = ay - groundBase.y;
+            const dist = Math.hypot(dx, dy);
+
+            let mx = dx, my = dy;
+            if (dist > STICK_MAX_DIST && dist > 0) {
+              mx = dx * STICK_MAX_DIST / dist;
+              my = dy * STICK_MAX_DIST / dist;
+            }
+
+            touchState.groundX = clamp(mx / STICK_MAX_DIST, -1, 1);
+            touchState.groundY = clamp(my / STICK_MAX_DIST, -1, 1);
+          }
+
+          if (t.identifier === touchState.screenId) {
+            const ay = t.clientY - SCREEN_STICK_TOUCH_OFFSET_Y;
+            touchState.screenXPos = t.clientX;
+            touchState.screenYPos = ay;
+
+            const dx = t.clientX - screenBase.x;
+            const dy = ay - screenBase.y;
+            const dist = Math.hypot(dx, dy);
+
+            let mx = dx, my = dy;
+            if (dist > STICK_MAX_DIST && dist > 0) {
+              mx = dx * STICK_MAX_DIST / dist;
+              my = dy * STICK_MAX_DIST / dist;
+            }
+
+            touchState.screenX = clamp(mx / STICK_MAX_DIST, -1, 1);
+            touchState.screenY = clamp(my / STICK_MAX_DIST, -1, 1);
+          }
+
+          if (t.identifier === touchState.lookId) {
+            const ay = t.clientY - LOOK_STICK_TOUCH_OFFSET_Y;
+            touchState.lookXPos = t.clientX;
+            touchState.lookYPos = ay;
+
+            const dx = t.clientX - lookBase.x;
+            const dy = ay - lookBase.y;
+            const dist = Math.hypot(dx, dy);
+
+            let mx = dx, my = dy;
+            if (dist > STICK_MAX_DIST && dist > 0) {
+              mx = dx * STICK_MAX_DIST / dist;
+              my = dy * STICK_MAX_DIST / dist;
+            }
+
+            touchState.lookX = clamp(mx / STICK_MAX_DIST, -1, 1);
+            touchState.lookY = clamp(my / STICK_MAX_DIST, -1, 1);
+          }
+        }
+      }, { passive: false });
+
+      function endTouch(e) {
+        e.preventDefault();
+
+        for (const t of e.changedTouches) {
+          if (t.identifier === touchState.groundId) {
+            touchState.groundId = null;
+            touchState.groundX = 0;
+            touchState.groundY = 0;
+          }
+
+          if (t.identifier === touchState.screenId) {
+            touchState.screenId = null;
+            touchState.screenX = 0;
+            touchState.screenY = 0;
+          }
+
+          if (t.identifier === touchState.lookId) {
+            touchState.lookId = null;
+            touchState.lookX = 0;
+            touchState.lookY = 0;
+          }
+        }
+      }
+
+      canvas.addEventListener("touchend", endTouch, { passive: false });
+      canvas.addEventListener("touchcancel", endTouch, { passive: false });
+    }
+
+    resetButton.addEventListener("click", resetCamera);
+    resetButton.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      resetCamera();
+    }, { passive: false });
+
+    function updateCamera() {
+      const { forward, right, up } = getCameraBasis();
+
+      const moveSpeed = 0.12;
+      const verticalSpeed = 0.08;
+      const rotateSpeed = 0.025;
+
+      if (keys["ArrowUp"]) {
+        camera.position = add(camera.position, mul(forward, moveSpeed));
+      }
+      if (keys["ArrowDown"]) {
+        camera.position = add(camera.position, mul(forward, -moveSpeed));
+      }
+      if (keys["ArrowLeft"]) {
+        camera.position = add(camera.position, mul(right, -moveSpeed));
+      }
+      if (keys["ArrowRight"]) {
+        camera.position = add(camera.position, mul(right, moveSpeed));
+      }
+      if (keys["q"] || keys["Q"]) {
+        camera.position.y += verticalSpeed;
+      }
+      if (keys["e"] || keys["E"]) {
+        camera.position.y -= verticalSpeed;
+      }
+      if (keys["a"] || keys["A"]) {
+        camera.yaw -= rotateSpeed;
+      }
+      if (keys["d"] || keys["D"]) {
+        camera.yaw += rotateSpeed;
+      }
+      if (keys["w"] || keys["W"]) {
+        camera.pitch += rotateSpeed;
+      }
+      if (keys["s"] || keys["S"]) {
+        camera.pitch -= rotateSpeed;
+      }
+
+      const groundInputX = applyStickCurve(touchState.groundX, 0.08, 2.8);
+      const groundInputY = applyStickCurve(touchState.groundY, 0.08, 2.8);
+      const screenInputX = applyStickCurve(touchState.screenX, 0.08, 2.8);
+      const screenInputY = applyStickCurve(touchState.screenY, 0.08, 2.8);
+      const lookInputY = applyStickCurve(touchState.lookY, 0.10, 3.2);
+
+      const flatForward = normalize(vec(forward.x, 0, forward.z));
+      const flatRight = normalize(vec(right.x, 0, right.z));
+
+      if (touchState.groundId !== null && !hasFigure()) {
+        camera.position = add(camera.position, mul(flatRight, groundInputX * moveSpeed));
+        camera.position = add(camera.position, mul(flatForward, -groundInputY * moveSpeed));
+      }
+
+      if (touchState.groundId !== null && hasFigure()) {
+        const fig = getSelectedFigure();
+        const target = getFigureTarget(fig);
+
+        const dx = camera.position.x - target.x;
+        const dy = camera.position.y - target.y;
+        const dz = camera.position.z - target.z;
+
+        let radius = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        radius = Math.max(radius, 0.001);
+
+        let yaw = Math.atan2(dx, dz);
+        let pitch = Math.asin(clamp(dy / radius, -1, 1));
+
+        yaw += groundInputX * 0.04;
+        pitch += groundInputY * 0.03;
+
+        const pitchLimit = Math.PI / 2 - 0.08;
+        pitch = clamp(pitch, -pitchLimit, pitchLimit);
+
+        camera.position.x = target.x + radius * Math.sin(yaw) * Math.cos(pitch);
+        camera.position.z = target.z + radius * Math.cos(yaw) * Math.cos(pitch);
+        camera.position.y = target.y + radius * Math.sin(pitch);
+
+        camera.yaw = Math.atan2(target.x - camera.position.x, target.z - camera.position.z);
+        const horizontal = Math.sqrt(
+          (target.x - camera.position.x) * (target.x - camera.position.x) +
+          (target.z - camera.position.z) * (target.z - camera.position.z)
+        );
+        camera.pitch = Math.atan2(target.y - camera.position.y, horizontal);
+      }
+
+      if (touchState.screenId !== null) {
+        camera.position = add(camera.position, mul(right, screenInputX * moveSpeed));
+        camera.position = add(camera.position, mul(up, -screenInputY * moveSpeed));
+      }
+
+      if (touchState.lookId !== null) {
+        if (hasFigure()) {
+          const fig = getSelectedFigure();
+          const target = getFigureTarget(fig);
+
+          const offset = sub(camera.position, target);
+          let dist = length(offset);
+          dist += lookInputY * 0.35;
+          dist = clamp(dist, 2.0, 25.0);
+
+          const dir = normalize(offset);
+          camera.position = add(target, mul(dir, dist));
+
+          camera.yaw = Math.atan2(target.x - camera.position.x, target.z - camera.position.z);
+          const horizontal = Math.sqrt(
+            (target.x - camera.position.x) * (target.x - camera.position.x) +
+            (target.z - camera.position.z) * (target.z - camera.position.z)
+          );
+          camera.pitch = Math.atan2(target.y - camera.position.y, horizontal);
+        } else {
+          camera.position = add(camera.position, mul(forward, -lookInputY * 0.25));
+        }
+      }
+
+      const limit = Math.PI / 2 - 0.05;
+      if (camera.pitch > limit) camera.pitch = limit;
+      if (camera.pitch < -limit) camera.pitch = -limit;
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function drawDebugText() {
+      ctx.fillStyle = "white";
+      ctx.font = "11px sans-serif";
+      ctx.fillText(
+        `camera: (${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)})`,
+        8,
+        canvas.height - 30
+      );
+      ctx.fillText(
+        `yaw: ${camera.yaw.toFixed(2)}   pitch: ${camera.pitch.toFixed(2)}`,
+        8,
+        canvas.height - 15
+      );
+    }
+
+    function drawStick(base, knobX, knobY, strokeColor, fillColor) {
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(base.x, base.y, STICK_BASE_RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(base.x, base.y, 2, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = fillColor;
+      ctx.beginPath();
+      ctx.arc(knobX, knobY, STICK_KNOB_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function getKnobPosition(base, xPos, yPos, activeId) {
+      let knobX = base.x;
+      let knobY = base.y;
+
+      if (activeId !== null) {
+        const dx = xPos - base.x;
+        const dy = yPos - base.y;
+        const dist = Math.hypot(dx, dy);
+
+        let mx = dx;
+        let my = dy;
+        if (dist > STICK_MAX_DIST && dist > 0) {
+          mx = dx * STICK_MAX_DIST / dist;
+          my = dy * STICK_MAX_DIST / dist;
+        }
+
+        knobX = base.x + mx;
+        knobY = base.y + my;
+      }
+
+      return { knobX, knobY };
+    }
+
+    function drawTouchUI() {
+      const groundBase = getGroundStickBase();
+      const screenBase = getScreenStickBase();
+      const lookBase = getLookStickBase();
+
+      const g = getKnobPosition(groundBase, touchState.groundXPos, touchState.groundYPos, touchState.groundId);
+      const s = getKnobPosition(screenBase, touchState.screenXPos, touchState.screenYPos, touchState.screenId);
+      const l = getKnobPosition(lookBase, touchState.lookXPos, touchState.lookYPos, touchState.lookId);
+
+      drawStick(
+        groundBase,
+        g.knobX, g.knobY,
+        "rgba(255,255,255,0.35)",
+        "rgba(255,255,255,0.25)"
+      );
+
+      drawStick(
+        screenBase,
+        s.knobX, s.knobY,
+        "rgba(180,255,180,0.40)",
+        "rgba(180,255,180,0.22)"
+      );
+
+      drawStick(
+        lookBase,
+        l.knobX, l.knobY,
+        "rgba(100,180,255,0.45)",
+        "rgba(100,180,255,0.28)"
+      );
+    }
+
+    function loop() {
+      updateCamera();
+      drawBackground();
+      drawGroundGrid();
+      drawAxes();
+
+      for (const fig of figures) {
+        drawStickFigure(fig);
+      }
+
+      drawTouchUI();
+      drawDebugText();
+      requestAnimationFrame(loop);
+    }
+
+    setupTouchControls();
+    updatePanels();
+    loop();
+  </script>
+</body>
+</html>
