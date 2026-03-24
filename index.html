@@ -296,21 +296,21 @@
     function getGroundStickBase() {
       return {
         x: 78,
-        y: canvas.height - 92
+        y: canvas.height - 150
       };
     }
 
-    function getScreenStickBase() {
+    function getScreenStickBase() {    //スティック位置調整
       return {
         x: 78,
-        y: canvas.height - 160
+        y: canvas.height - 220
       };
     }
 
     function getLookStickBase() {
       return {
         x: canvas.width - 78,
-        y: canvas.height - 92
+        y: canvas.height - 150
       };
     }
 
@@ -319,9 +319,9 @@
     const STICK_MAX_DIST = 20;
     const STICK_TOUCH_RANGE = 48;
 
-    const GROUND_STICK_TOUCH_OFFSET_Y = 40;
-    const SCREEN_STICK_TOUCH_OFFSET_Y = 40;
-    const LOOK_STICK_TOUCH_OFFSET_Y = 40;
+    const GROUND_STICK_TOUCH_OFFSET_Y = 70;     //スティック感応位置調整
+    const SCREEN_STICK_TOUCH_OFFSET_Y = 70;
+    const LOOK_STICK_TOUCH_OFFSET_Y = 70;
 
     // =========================
     // 11. タッチ入力
