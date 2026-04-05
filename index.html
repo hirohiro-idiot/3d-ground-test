@@ -64,6 +64,27 @@
       opacity: 0.45;
     }
 
+    .uiTextInput, .uiSelect {
+      pointer-events: auto;
+      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(0,0,0,0.55);
+      color: white;
+      padding: 6px 8px;
+      border-radius: 9px;
+      font-size: 11px;
+      width: 100%;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    .uiTextInput::placeholder {
+      color: rgba(255,255,255,0.55);
+    }
+
+    .uiSelect option {
+      color: black;
+    }
+
     #info {
       position: absolute;
       top: 52px;
@@ -153,10 +174,20 @@ PC:
 平面拘束ONなら基本は中心平面 x=0 上
 平面離脱でX方向移動を許可
 対称モードONなら反対側にも自動生成
+保存機能で名前をつけてモデル保存可能
   </div>
 
   <div id="editorPanel">
     <h3>人形作成</h3>
+
+    <div class="sectionTitle">保存 / 読み込み</div>
+    <div class="buttonCol">
+      <input id="modelNameInput" type="text" placeholder="モデル名" class="uiTextInput" />
+      <button id="saveModelButton" class="uiButton">名前をつけて保存</button>
+      <button id="loadModelButton" class="uiButton">選択モデルを読み込み</button>
+      <button id="deleteModelButton" class="uiButton">選択モデルを削除</button>
+      <select id="savedModelsSelect" class="uiSelect"></select>
+    </div>
 
     <div class="sectionTitle">ノード追加</div>
     <div class="buttonCol">
@@ -194,6 +225,12 @@ PC:
     const toggleEditorPanelButton = document.getElementById("toggleEditorPanelButton");
     const infoPanel = document.getElementById("info");
     const editorPanel = document.getElementById("editorPanel");
+
+    const modelNameInput = document.getElementById("modelNameInput");
+    const saveModelButton = document.getElementById("saveModelButton");
+    const loadModelButton = document.getElementById("loadModelButton");
+    const deleteModelButton = document.getElementById("deleteModelButton");
+    const savedModelsSelect = document.getElementById("savedModelsSelect");
 
     const addJoint1Button = document.getElementById("addJoint1Button");
     const addJoint2Button = document.getElementById("addJoint2Button");
@@ -379,6 +416,165 @@ PC:
       gizmoLastY: 0
     };
 
+    const MODEL_STORAGE_KEY = "gizmo_editor_saved_models_v1";
+
+    function getSavedModelsMap() {
+      try {
+        const raw = localStorage.getItem(MODEL_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (e) {
+        console.error("保存データの読込失敗:", e);
+        return {};
+      }
+    }
+
+    function setSavedModelsMap(map) {
+      localStorage.setItem(MODEL_STORAGE_KEY, JSON.stringify(map));
+    }
+
+    function createModelSnapshot() {
+      return {
+        savedAt: new Date().toISOString(),
+        nextNodeId,
+        nextEdgeId,
+        editorNodes: editorNodes.map(n => ({ ...n })),
+        editorEdges: editorEdges.map(e => ({ ...e })),
+        editorFaces: editorFaces.map(f => ({ ...f })),
+        editorState: {
+          symmetryMode: editorState.symmetryMode,
+          showMirrorPlane: editorState.showMirrorPlane,
+          mirrorValue: editorState.mirrorValue,
+          planeConstraint: editorState.planeConstraint
+        }
+      };
+    }
+
+    function applyModelSnapshot(snapshot) {
+      editorNodes.length = 0;
+      editorEdges.length = 0;
+      editorFaces.length = 0;
+      selectedNodeIds.length = 0;
+
+      if (Array.isArray(snapshot.editorNodes)) {
+        for (const n of snapshot.editorNodes) editorNodes.push({ ...n });
+      }
+      if (Array.isArray(snapshot.editorEdges)) {
+        for (const e of snapshot.editorEdges) editorEdges.push({ ...e });
+      }
+      if (Array.isArray(snapshot.editorFaces)) {
+        for (const f of snapshot.editorFaces) editorFaces.push({ ...f });
+      }
+
+      nextNodeId = Number.isFinite(snapshot.nextNodeId) ? snapshot.nextNodeId : 1;
+      nextEdgeId = Number.isFinite(snapshot.nextEdgeId) ? snapshot.nextEdgeId : 1;
+
+      editorState.placementMode = false;
+      editorState.activePlacementNodeId = null;
+      editorState.activePlacementMirrorId = null;
+      editorState.activeGizmoAxis = null;
+      editorState.gizmoTouchId = null;
+
+      if (snapshot.editorState) {
+        editorState.symmetryMode = !!snapshot.editorState.symmetryMode;
+        editorState.showMirrorPlane = snapshot.editorState.showMirrorPlane !== false;
+        editorState.mirrorValue = Number.isFinite(snapshot.editorState.mirrorValue) ? snapshot.editorState.mirrorValue : 0;
+        editorState.planeConstraint = snapshot.editorState.planeConstraint !== false;
+      }
+
+      moveModeEnabled = false;
+      updatePanels();
+      updateEditorStatus();
+    }
+
+    function refreshSavedModelsSelect(selectedName = "") {
+      const map = getSavedModelsMap();
+      const names = Object.keys(map).sort((a, b) => a.localeCompare(b, "ja"));
+
+      savedModelsSelect.innerHTML = "";
+
+      if (names.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "保存データなし";
+        savedModelsSelect.appendChild(opt);
+        savedModelsSelect.value = "";
+        return;
+      }
+
+      for (const name of names) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        savedModelsSelect.appendChild(opt);
+      }
+
+      if (selectedName && names.includes(selectedName)) {
+        savedModelsSelect.value = selectedName;
+      } else {
+        savedModelsSelect.value = names[0];
+      }
+    }
+
+    function saveCurrentModel() {
+      const name = modelNameInput.value.trim();
+      if (!name) {
+        alert("モデル名を入力してください");
+        return;
+      }
+
+      const map = getSavedModelsMap();
+      map[name] = createModelSnapshot();
+      setSavedModelsMap(map);
+      refreshSavedModelsSelect(name);
+      updateEditorStatus();
+      alert(`「${name}」を保存しました`);
+    }
+
+    function loadSelectedModel() {
+      const name = savedModelsSelect.value;
+      if (!name) {
+        alert("読み込むモデルを選んでください");
+        return;
+      }
+
+      const map = getSavedModelsMap();
+      const snapshot = map[name];
+      if (!snapshot) {
+        alert("保存データが見つかりません");
+        refreshSavedModelsSelect();
+        return;
+      }
+
+      applyModelSnapshot(snapshot);
+      modelNameInput.value = name;
+      refreshSavedModelsSelect(name);
+      alert(`「${name}」を読み込みました`);
+    }
+
+    function deleteSelectedModel() {
+      const name = savedModelsSelect.value;
+      if (!name) {
+        alert("削除するモデルを選んでください");
+        return;
+      }
+
+      const ok = confirm(`「${name}」を削除しますか？`);
+      if (!ok) return;
+
+      const map = getSavedModelsMap();
+      delete map[name];
+      setSavedModelsMap(map);
+      refreshSavedModelsSelect();
+
+      if (modelNameInput.value.trim() === name) {
+        modelNameInput.value = "";
+      }
+
+      alert(`「${name}」を削除しました`);
+    }
+
     function getNodeById(id) {
       return editorNodes.find(n => n.id === id) || null;
     }
@@ -451,8 +647,9 @@ PC:
     function toggleNodeSelection(id) {
       if (editorState.placementMode) return;
       const idx = selectedNodeIds.indexOf(id);
-      if (idx >= 0) selectedNodeIds.splice(idx, 1);
-      else {
+      if (idx >= 0) {
+        selectedNodeIds.splice(idx, 1);
+      } else {
         if (selectedNodeIds.length >= 2) selectedNodeIds.shift();
         selectedNodeIds.push(id);
       }
@@ -478,8 +675,10 @@ PC:
       const node = getPlacementNode();
       if (!node) return;
       node.isTemporary = false;
+
       const mirror = getPlacementMirrorNode();
       if (mirror) mirror.isTemporary = false;
+
       editorState.placementMode = false;
       editorState.activePlacementNodeId = null;
       editorState.activePlacementMirrorId = null;
@@ -757,7 +956,12 @@ ${coordText}`;
           ((selectedNodeIds[0] === edge.a && selectedNodeIds[1] === edge.b) ||
            (selectedNodeIds[0] === edge.b && selectedNodeIds[1] === edge.a));
 
-        drawLine3D(vec(a.x, a.y, a.z), vec(b.x, b.y, b.z), isSelectedPair ? "#ff66ff" : "#aaaaaa", isSelectedPair ? 3 : 2);
+        drawLine3D(
+          vec(a.x, a.y, a.z),
+          vec(b.x, b.y, b.z),
+          isSelectedPair ? "#ff66ff" : "#aaaaaa",
+          isSelectedPair ? 3 : 2
+        );
       }
     }
 
@@ -958,11 +1162,12 @@ ${coordText}`;
         const interactiveNode = getInteractiveGizmoNode();
 
         for (const t of e.changedTouches) {
-          if (editorState.gizmoTouchId !== null &&
-              t.identifier === editorState.gizmoTouchId &&
-              interactiveNode &&
-              editorState.activeGizmoAxis) {
-
+          if (
+            editorState.gizmoTouchId !== null &&
+            t.identifier === editorState.gizmoTouchId &&
+            interactiveNode &&
+            editorState.activeGizmoAxis
+          ) {
             const dx = t.clientX - editorState.gizmoLastX;
             const dy = t.clientY - editorState.gizmoLastY;
 
@@ -1092,6 +1297,26 @@ ${coordText}`;
       if (!editorEnabled) return;
       editorPanelEnabled = !editorPanelEnabled;
       updatePanels();
+    });
+
+    saveModelButton.addEventListener("click", () => {
+      if (!editorEnabled) return;
+      saveCurrentModel();
+    });
+
+    loadModelButton.addEventListener("click", () => {
+      if (!editorEnabled) return;
+      loadSelectedModel();
+    });
+
+    deleteModelButton.addEventListener("click", () => {
+      if (!editorEnabled) return;
+      deleteSelectedModel();
+    });
+
+    savedModelsSelect.addEventListener("change", () => {
+      const name = savedModelsSelect.value;
+      if (name) modelNameInput.value = name;
     });
 
     addJoint1Button.addEventListener("click", () => {
@@ -1257,28 +1482,6 @@ ${coordText}`;
       if (camera.pitch < -limit) camera.pitch = -limit;
     }
 
-    function drawGizmo() {
-      let node = null;
-      if (editorState.placementMode) node = getPlacementNode();
-      else if (moveModeEnabled) node = getPrimarySelectedNode();
-      if (!node) return;
-
-      const g = getGizmoInfo(node);
-      if (!g) return;
-
-      const xColor = editorState.activeGizmoAxis === "x" ? "#ff8888" : "#ff3333";
-      const yColor = editorState.activeGizmoAxis === "y" ? "#88ff88" : "#33ff33";
-      const zColor = editorState.activeGizmoAxis === "z" ? "#8888ff" : "#3399ff";
-
-      drawLine3D(g.origin, g.xEnd, xColor, 4);
-      drawLine3D(g.origin, g.yEnd, yColor, 4);
-      drawLine3D(g.origin, g.zEnd, zColor, 4);
-
-      drawPoint3D(g.xEnd, xColor, 6);
-      drawPoint3D(g.yEnd, yColor, 6);
-      drawPoint3D(g.zEnd, zColor, 6);
-    }
-
     function loop() {
       updateCamera();
       drawBackground();
@@ -1302,6 +1505,7 @@ ${coordText}`;
     setupTouchControls();
     updatePanels();
     updateEditorStatus();
+    refreshSavedModelsSelect();
     loop();
   </script>
 </body>
