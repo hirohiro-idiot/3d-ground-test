@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Ground Triple Sticks + Figure + Editor</title>
+  <title>3D Ground Triple Sticks + Figure + Full Editor</title>
   <style>
     html, body {
       margin: 0;
@@ -74,14 +74,15 @@
       z-index: 10;
       max-width: 78vw;
       display: none;
+      white-space: pre-line;
     }
 
     #jointPanel, #editorPanel {
       position: absolute;
       top: 52px;
       right: 8px;
-      width: 220px;
-      max-width: 68vw;
+      width: 240px;
+      max-width: 70vw;
       color: white;
       background: rgba(0, 0, 0, 0.58);
       border: 1px solid rgba(255,255,255,0.18);
@@ -110,7 +111,7 @@
 
     .jointRow .value {
       float: right;
-      opacity: 0.8;
+      opacity: 0.85;
     }
 
     .jointRow input[type="range"] {
@@ -133,7 +134,7 @@
       margin-top: 10px;
       font-size: 11px;
       line-height: 1.4;
-      opacity: 0.9;
+      opacity: 0.95;
       white-space: pre-line;
     }
   </style>
@@ -155,13 +156,18 @@
   </div>
 
   <div id="info">
-    PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし / Q E 上下 / R リセット<br>
-    スマホ:<br>
-    左下 下スティック = 人形なし: 地面平行移動 / 人形あり: 被写体中心の横回転・縦回転<br>
-    左下 上スティック = 画面基準の上下左右移動<br>
-    右スティック = 人形なし: 通常カメラ回転 / 人形あり: 近づく・離れる<br><br>
-    人形作成モードON時:<br>
-    ノードをタップして選択 / 2つ選んで接続
+PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし / Q E 上下 / R リセット
+スマホ:
+左下 下スティック = 人形なし: 地面平行移動 / 人形あり: 被写体中心の横回転・縦回転
+左下 上スティック = 画面基準の上下左右移動
+右スティック = 人形なし: 通常カメラ回転 / 人形あり: 近づく・離れる
+
+人形作成モード:
+ノードをタップして選択
+2つ選んで接続
+移動モードONで選択ノードを移動
+- 左下上スティック: 画面基準の上下左右
+- 右スティック縦: 前後
   </div>
 
   <div id="jointPanel">
@@ -223,6 +229,7 @@
     <div class="buttonCol">
       <button id="connectButton" class="uiButton">接続</button>
       <button id="disconnectButton" class="uiButton">接続削除</button>
+      <button id="toggleMoveModeButton" class="uiButton">移動モード: OFF</button>
       <button id="clearSelectionButton" class="uiButton">選択解除</button>
       <button id="deleteSelectedButton" class="uiButton">選択削除</button>
     </div>
@@ -255,6 +262,7 @@
     const addPointButton = document.getElementById("addPointButton");
     const connectButton = document.getElementById("connectButton");
     const disconnectButton = document.getElementById("disconnectButton");
+    const toggleMoveModeButton = document.getElementById("toggleMoveModeButton");
     const clearSelectionButton = document.getElementById("clearSelectionButton");
     const deleteSelectedButton = document.getElementById("deleteSelectedButton");
     const editorStatus = document.getElementById("editorStatus");
@@ -565,12 +573,14 @@
     // =========================
     let editorEnabled = false;
     let editorPanelEnabled = false;
+    let moveModeEnabled = false;
 
     let nextNodeId = 1;
     let nextEdgeId = 1;
 
     const editorNodes = [];
     const editorEdges = [];
+    const editorFaces = []; // 将来用
     const selectedNodeIds = [];
 
     function getNodeById(id) {
@@ -601,11 +611,15 @@
       const p = getSpawnPosition();
       editorNodes.push({
         id: nextNodeId++,
-        type,
-        dof,
+        type,   // joint / point
+        dof,    // 0,1,2,3
         x: p.x,
         y: p.y,
-        z: p.z
+        z: p.z,
+        rx: 0,
+        ry: 0,
+        rz: 0,
+        name: `${type}_${nextNodeId - 1}`
       });
       updateEditorStatus();
     }
@@ -626,6 +640,11 @@
         selectedNodeIds.push(id);
       }
       updateEditorStatus();
+    }
+
+    function getPrimarySelectedNode() {
+      if (selectedNodeIds.length === 0) return null;
+      return getNodeById(selectedNodeIds[selectedNodeIds.length - 1]);
     }
 
     function connectSelectedNodes() {
@@ -676,16 +695,29 @@
     }
 
     function updateEditorStatus() {
-      const selected = selectedNodeIds.map(id => {
+      const selectedText = selectedNodeIds.map(id => {
         const n = getNodeById(id);
         if (!n) return `#${id}`;
         return `${n.type === "point" ? "点" : `${n.dof}自由度関節`} #${n.id}`;
       });
 
+      const primary = getPrimarySelectedNode();
+      const coordText = primary
+        ? `主選択座標:
+x=${primary.x.toFixed(2)}
+y=${primary.y.toFixed(2)}
+z=${primary.z.toFixed(2)}`
+        : `主選択座標:
+なし`;
+
       editorStatus.textContent =
-        `ノード数: ${editorNodes.length}\n` +
-        `接続数: ${editorEdges.length}\n` +
-        `選択: ${selected.length ? selected.join(" / ") : "なし"}`;
+        `ノード数: ${editorNodes.length}
+接続数: ${editorEdges.length}
+面データ数: ${editorFaces.length}
+選択: ${selectedText.length ? selectedText.join(" / ") : "なし"}
+移動モード: ${moveModeEnabled ? "ON" : "OFF"}
+
+${coordText}`;
     }
 
     function updatePanels() {
@@ -697,6 +729,7 @@
       toggleJointPanelButton.textContent = `可動バー: ${jointPanelEnabled ? "ON" : "OFF"}`;
       toggleEditorButton.textContent = `人形作成: ${editorEnabled ? "ON" : "OFF"}`;
       toggleEditorPanelButton.textContent = `編集パネル: ${editorPanelEnabled ? "ON" : "OFF"}`;
+      toggleMoveModeButton.textContent = `移動モード: ${moveModeEnabled ? "ON" : "OFF"}`;
     }
 
     function pickNodeAtScreen(x, y) {
@@ -718,6 +751,21 @@
       }
 
       return bestId;
+    }
+
+    function movePrimarySelectedNode(screenDX, screenDY, depthDelta) {
+      const node = getPrimarySelectedNode();
+      if (!node) return;
+
+      const { right, up, forward } = getCameraBasis();
+      const moveScale = 0.12;
+      const depthScale = 0.18;
+
+      node.x += right.x * screenDX * moveScale + up.x * (-screenDY) * moveScale + forward.x * depthDelta * depthScale;
+      node.y += right.y * screenDX * moveScale + up.y * (-screenDY) * moveScale + forward.y * depthDelta * depthScale;
+      node.z += right.z * screenDX * moveScale + up.z * (-screenDY) * moveScale + forward.z * depthDelta * depthScale;
+
+      updateEditorStatus();
     }
 
     // =========================
@@ -886,9 +934,11 @@
       editorEnabled = !editorEnabled;
       if (!editorEnabled) {
         editorPanelEnabled = false;
+        moveModeEnabled = false;
         clearSelection();
       }
       updatePanels();
+      updateEditorStatus();
     });
 
     toggleEditorPanelButton.addEventListener("click", () => {
@@ -925,6 +975,13 @@
     disconnectButton.addEventListener("click", () => {
       if (!editorEnabled) return;
       disconnectSelectedNodes();
+    });
+
+    toggleMoveModeButton.addEventListener("click", () => {
+      if (!editorEnabled) return;
+      moveModeEnabled = !moveModeEnabled;
+      updatePanels();
+      updateEditorStatus();
     });
 
     clearSelectionButton.addEventListener("click", () => {
@@ -1163,36 +1220,16 @@
       const verticalSpeed = 0.08;
       const rotateSpeed = 0.025;
 
-      if (keys["ArrowUp"]) {
-        camera.position = add(camera.position, mul(forward, moveSpeed));
-      }
-      if (keys["ArrowDown"]) {
-        camera.position = add(camera.position, mul(forward, -moveSpeed));
-      }
-      if (keys["ArrowLeft"]) {
-        camera.position = add(camera.position, mul(right, -moveSpeed));
-      }
-      if (keys["ArrowRight"]) {
-        camera.position = add(camera.position, mul(right, moveSpeed));
-      }
-      if (keys["q"] || keys["Q"]) {
-        camera.position.y += verticalSpeed;
-      }
-      if (keys["e"] || keys["E"]) {
-        camera.position.y -= verticalSpeed;
-      }
-      if (keys["a"] || keys["A"]) {
-        camera.yaw -= rotateSpeed;
-      }
-      if (keys["d"] || keys["D"]) {
-        camera.yaw += rotateSpeed;
-      }
-      if (keys["w"] || keys["W"]) {
-        camera.pitch += rotateSpeed;
-      }
-      if (keys["s"] || keys["S"]) {
-        camera.pitch -= rotateSpeed;
-      }
+      if (keys["ArrowUp"]) camera.position = add(camera.position, mul(forward, moveSpeed));
+      if (keys["ArrowDown"]) camera.position = add(camera.position, mul(forward, -moveSpeed));
+      if (keys["ArrowLeft"]) camera.position = add(camera.position, mul(right, -moveSpeed));
+      if (keys["ArrowRight"]) camera.position = add(camera.position, mul(right, moveSpeed));
+      if (keys["q"] || keys["Q"]) camera.position.y += verticalSpeed;
+      if (keys["e"] || keys["E"]) camera.position.y -= verticalSpeed;
+      if (keys["a"] || keys["A"]) camera.yaw -= rotateSpeed;
+      if (keys["d"] || keys["D"]) camera.yaw += rotateSpeed;
+      if (keys["w"] || keys["W"]) camera.pitch += rotateSpeed;
+      if (keys["s"] || keys["S"]) camera.pitch -= rotateSpeed;
 
       const groundInputX = applyStickCurve(touchState.groundX, 0.08, 2.8);
       const groundInputY = applyStickCurve(touchState.groundY, 0.08, 2.8);
@@ -1200,6 +1237,17 @@
       const screenInputY = applyStickCurve(touchState.screenY, 0.08, 2.8);
       const lookInputX = applyStickCurve(touchState.lookX, 0.10, 3.2);
       const lookInputY = applyStickCurve(touchState.lookY, 0.10, 3.2);
+
+      // 編集移動モード
+      if (editorEnabled && moveModeEnabled && getPrimarySelectedNode()) {
+        if (touchState.screenId !== null || touchState.lookId !== null) {
+          movePrimarySelectedNode(screenInputX, screenInputY, -lookInputY);
+        }
+        const limit = Math.PI / 2 - 0.05;
+        if (camera.pitch > limit) camera.pitch = limit;
+        if (camera.pitch < -limit) camera.pitch = -limit;
+        return;
+      }
 
       const flatForward = normalize(vec(forward.x, 0, forward.z));
       const flatRight = normalize(vec(right.x, 0, right.z));
