@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Ground Triple Sticks + Figure + Full Editor</title>
+  <title>3D Ground Triple Sticks + Figure + Symmetry Editor</title>
   <style>
     html, body {
       margin: 0;
@@ -72,7 +72,7 @@
       border-radius: 8px;
       user-select: none;
       z-index: 10;
-      max-width: 78vw;
+      max-width: 80vw;
       display: none;
       white-space: pre-line;
     }
@@ -81,8 +81,8 @@
       position: absolute;
       top: 52px;
       right: 8px;
-      width: 240px;
-      max-width: 70vw;
+      width: 250px;
+      max-width: 72vw;
       color: white;
       background: rgba(0, 0, 0, 0.58);
       border: 1px solid rgba(255,255,255,0.18);
@@ -166,8 +166,14 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
 ノードをタップして選択
 2つ選んで接続
 移動モードONで選択ノードを移動
-- 左下上スティック: 画面基準の上下左右
-- 右スティック縦: 前後
+追加直後は仮配置モードへ入る
+- 下スティック: カメラ
+- 上スティック: 画面基準移動
+- 右スティック縦: 前後移動
+決定で配置確定 / キャンセルで追加取消
+
+対称モード:
+x = 0 の平面を基準に反対側ノードを自動生成
   </div>
 
   <div id="jointPanel">
@@ -177,37 +183,30 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       <label>左肩 <span id="val-shoulderL" class="value">0</span></label>
       <input id="slider-shoulderL" type="range" min="-120" max="120" value="0" />
     </div>
-
     <div class="jointRow">
       <label>左肘 <span id="val-elbowL" class="value">0</span></label>
       <input id="slider-elbowL" type="range" min="-150" max="150" value="0" />
     </div>
-
     <div class="jointRow">
       <label>右肩 <span id="val-shoulderR" class="value">0</span></label>
       <input id="slider-shoulderR" type="range" min="-120" max="120" value="0" />
     </div>
-
     <div class="jointRow">
       <label>右肘 <span id="val-elbowR" class="value">0</span></label>
       <input id="slider-elbowR" type="range" min="-150" max="150" value="0" />
     </div>
-
     <div class="jointRow">
       <label>左股関節 <span id="val-hipL" class="value">0</span></label>
       <input id="slider-hipL" type="range" min="-120" max="120" value="0" />
     </div>
-
     <div class="jointRow">
       <label>左膝 <span id="val-kneeL" class="value">0</span></label>
       <input id="slider-kneeL" type="range" min="-150" max="150" value="0" />
     </div>
-
     <div class="jointRow">
       <label>右股関節 <span id="val-hipR" class="value">0</span></label>
       <input id="slider-hipR" type="range" min="-120" max="120" value="0" />
     </div>
-
     <div class="jointRow">
       <label>右膝 <span id="val-kneeR" class="value">0</span></label>
       <input id="slider-kneeR" type="range" min="-150" max="150" value="0" />
@@ -230,6 +229,10 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       <button id="connectButton" class="uiButton">接続</button>
       <button id="disconnectButton" class="uiButton">接続削除</button>
       <button id="toggleMoveModeButton" class="uiButton">移動モード: OFF</button>
+      <button id="toggleSymmetryButton" class="uiButton">対称モード: OFF</button>
+      <button id="toggleMirrorPlaneButton" class="uiButton">対称平面表示: ON</button>
+      <button id="confirmPlacementButton" class="uiButton">決定</button>
+      <button id="cancelPlacementButton" class="uiButton">キャンセル</button>
       <button id="clearSelectionButton" class="uiButton">選択解除</button>
       <button id="deleteSelectedButton" class="uiButton">選択削除</button>
     </div>
@@ -263,6 +266,10 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     const connectButton = document.getElementById("connectButton");
     const disconnectButton = document.getElementById("disconnectButton");
     const toggleMoveModeButton = document.getElementById("toggleMoveModeButton");
+    const toggleSymmetryButton = document.getElementById("toggleSymmetryButton");
+    const toggleMirrorPlaneButton = document.getElementById("toggleMirrorPlaneButton");
+    const confirmPlacementButton = document.getElementById("confirmPlacementButton");
+    const cancelPlacementButton = document.getElementById("cancelPlacementButton");
     const clearSelectionButton = document.getElementById("clearSelectionButton");
     const deleteSelectedButton = document.getElementById("deleteSelectedButton");
     const editorStatus = document.getElementById("editorStatus");
@@ -580,8 +587,17 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
 
     const editorNodes = [];
     const editorEdges = [];
-    const editorFaces = []; // 将来用
+    const editorFaces = [];
     const selectedNodeIds = [];
+
+    const editorState = {
+      placementMode: false,
+      activePlacementNodeId: null,
+      activePlacementMirrorId: null,
+      symmetryMode: false,
+      showMirrorPlane: true,
+      mirrorValue: 0
+    };
 
     function getNodeById(id) {
       return editorNodes.find(n => n.id === id) || null;
@@ -607,20 +623,45 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       return vec(base.x, base.y, base.z);
     }
 
-    function addEditorNode(type, dof) {
-      const p = getSpawnPosition();
-      editorNodes.push({
+    function createEditorNodeData(type, dof, p, mirrored = false) {
+      return {
         id: nextNodeId++,
-        type,   // joint / point
-        dof,    // 0,1,2,3
+        type,
+        dof,
         x: p.x,
         y: p.y,
         z: p.z,
         rx: 0,
         ry: 0,
         rz: 0,
-        name: `${type}_${nextNodeId - 1}`
-      });
+        name: `${type}_${nextNodeId - 1}`,
+        isTemporary: true,
+        mirrorPairId: null,
+        mirrored
+      };
+    }
+
+    function addEditorNode(type, dof) {
+      const p = getSpawnPosition();
+      const node = createEditorNodeData(type, dof, p, false);
+      editorNodes.push(node);
+
+      let mirrorNode = null;
+      if (editorState.symmetryMode) {
+        const mp = vec(2 * editorState.mirrorValue - p.x, p.y, p.z);
+        mirrorNode = createEditorNodeData(type, dof, mp, true);
+        editorNodes.push(mirrorNode);
+        node.mirrorPairId = mirrorNode.id;
+        mirrorNode.mirrorPairId = node.id;
+      }
+
+      selectedNodeIds.length = 0;
+      selectedNodeIds.push(node.id);
+
+      editorState.placementMode = true;
+      editorState.activePlacementNodeId = node.id;
+      editorState.activePlacementMirrorId = mirrorNode ? mirrorNode.id : null;
+
       updateEditorStatus();
     }
 
@@ -630,6 +671,8 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     }
 
     function toggleNodeSelection(id) {
+      if (editorState.placementMode) return;
+
       const idx = selectedNodeIds.indexOf(id);
       if (idx >= 0) {
         selectedNodeIds.splice(idx, 1);
@@ -645,6 +688,49 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     function getPrimarySelectedNode() {
       if (selectedNodeIds.length === 0) return null;
       return getNodeById(selectedNodeIds[selectedNodeIds.length - 1]);
+    }
+
+    function getPlacementNode() {
+      return getNodeById(editorState.activePlacementNodeId);
+    }
+
+    function getPlacementMirrorNode() {
+      return getNodeById(editorState.activePlacementMirrorId);
+    }
+
+    function confirmPlacement() {
+      const node = getPlacementNode();
+      if (!node) return;
+
+      node.isTemporary = false;
+
+      const mirror = getPlacementMirrorNode();
+      if (mirror) mirror.isTemporary = false;
+
+      editorState.placementMode = false;
+      editorState.activePlacementNodeId = null;
+      editorState.activePlacementMirrorId = null;
+      updateEditorStatus();
+    }
+
+    function cancelPlacement() {
+      const nodeId = editorState.activePlacementNodeId;
+      const mirrorId = editorState.activePlacementMirrorId;
+
+      if (nodeId !== null) {
+        const idx = editorNodes.findIndex(n => n.id === nodeId);
+        if (idx >= 0) editorNodes.splice(idx, 1);
+      }
+      if (mirrorId !== null) {
+        const idx = editorNodes.findIndex(n => n.id === mirrorId);
+        if (idx >= 0) editorNodes.splice(idx, 1);
+      }
+
+      editorState.placementMode = false;
+      editorState.activePlacementNodeId = null;
+      editorState.activePlacementMirrorId = null;
+      clearSelection();
+      updateEditorStatus();
     }
 
     function connectSelectedNodes() {
@@ -701,13 +787,13 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
         return `${n.type === "point" ? "点" : `${n.dof}自由度関節`} #${n.id}`;
       });
 
-      const primary = getPrimarySelectedNode();
+      const primary = editorState.placementMode ? getPlacementNode() : getPrimarySelectedNode();
       const coordText = primary
-        ? `主選択座標:
+        ? `主対象座標:
 x=${primary.x.toFixed(2)}
 y=${primary.y.toFixed(2)}
 z=${primary.z.toFixed(2)}`
-        : `主選択座標:
+        : `主対象座標:
 なし`;
 
       editorStatus.textContent =
@@ -716,6 +802,8 @@ z=${primary.z.toFixed(2)}`
 面データ数: ${editorFaces.length}
 選択: ${selectedText.length ? selectedText.join(" / ") : "なし"}
 移動モード: ${moveModeEnabled ? "ON" : "OFF"}
+仮配置: ${editorState.placementMode ? "ON" : "OFF"}
+対称モード: ${editorState.symmetryMode ? "ON" : "OFF"}
 
 ${coordText}`;
     }
@@ -730,6 +818,11 @@ ${coordText}`;
       toggleEditorButton.textContent = `人形作成: ${editorEnabled ? "ON" : "OFF"}`;
       toggleEditorPanelButton.textContent = `編集パネル: ${editorPanelEnabled ? "ON" : "OFF"}`;
       toggleMoveModeButton.textContent = `移動モード: ${moveModeEnabled ? "ON" : "OFF"}`;
+      toggleSymmetryButton.textContent = `対称モード: ${editorState.symmetryMode ? "ON" : "OFF"}`;
+      toggleMirrorPlaneButton.textContent = `対称平面表示: ${editorState.showMirrorPlane ? "ON" : "OFF"}`;
+
+      confirmPlacementButton.disabled = !editorState.placementMode;
+      cancelPlacementButton.disabled = !editorState.placementMode;
     }
 
     function pickNodeAtScreen(x, y) {
@@ -753,10 +846,7 @@ ${coordText}`;
       return bestId;
     }
 
-    function movePrimarySelectedNode(screenDX, screenDY, depthDelta) {
-      const node = getPrimarySelectedNode();
-      if (!node) return;
-
+    function moveNodeByInput(node, screenDX, screenDY, depthDelta) {
       const { right, up, forward } = getCameraBasis();
       const moveScale = 0.12;
       const depthScale = 0.18;
@@ -764,6 +854,38 @@ ${coordText}`;
       node.x += right.x * screenDX * moveScale + up.x * (-screenDY) * moveScale + forward.x * depthDelta * depthScale;
       node.y += right.y * screenDX * moveScale + up.y * (-screenDY) * moveScale + forward.y * depthDelta * depthScale;
       node.z += right.z * screenDX * moveScale + up.z * (-screenDY) * moveScale + forward.z * depthDelta * depthScale;
+    }
+
+    function movePrimarySelectedNode(screenDX, screenDY, depthDelta) {
+      const node = getPrimarySelectedNode();
+      if (!node) return;
+
+      moveNodeByInput(node, screenDX, screenDY, depthDelta);
+
+      if (editorState.symmetryMode && node.mirrorPairId) {
+        const mirror = getNodeById(node.mirrorPairId);
+        if (mirror) {
+          mirror.x = 2 * editorState.mirrorValue - node.x;
+          mirror.y = node.y;
+          mirror.z = node.z;
+        }
+      }
+
+      updateEditorStatus();
+    }
+
+    function movePlacementNodes(screenDX, screenDY, depthDelta) {
+      const node = getPlacementNode();
+      if (!node) return;
+
+      moveNodeByInput(node, screenDX, screenDY, depthDelta);
+
+      const mirror = getPlacementMirrorNode();
+      if (mirror) {
+        mirror.x = 2 * editorState.mirrorValue - node.x;
+        mirror.y = node.y;
+        mirror.z = node.z;
+      }
 
       updateEditorStatus();
     }
@@ -800,6 +922,25 @@ ${coordText}`;
 
       ctx.fillStyle = color;
       ctx.fillRect(pp.x - size / 2, pp.y - size / 2, size, size);
+    }
+
+    function drawMirrorPlane() {
+      if (!editorEnabled || !editorState.showMirrorPlane) return;
+
+      const x = editorState.mirrorValue;
+      const y0 = -1;
+      const y1 = 4;
+      const z0 = 2;
+      const z1 = 20;
+
+      for (let y = y0; y <= y1; y += 1) {
+        drawLine3D(vec(x, y, z0), vec(x, y, z1), "rgba(120,160,255,0.25)", 1);
+      }
+      for (let z = z0; z <= z1; z += 1) {
+        drawLine3D(vec(x, y0, z), vec(x, y1, z), "rgba(120,160,255,0.25)", 1);
+      }
+      drawLine3D(vec(x, y0, z0), vec(x, y1, z0), "rgba(160,220,255,0.55)", 2);
+      drawLine3D(vec(x, y0, z1), vec(x, y1, z1), "rgba(160,220,255,0.55)", 2);
     }
 
     function drawStickFigure(fig) {
@@ -854,8 +995,12 @@ ${coordText}`;
     function drawEditorNodes() {
       for (const node of editorNodes) {
         const selected = selectedNodeIds.includes(node.id);
-        const color = getNodeColor(node);
+        let color = getNodeColor(node);
         const p = vec(node.x, node.y, node.z);
+
+        if (node.isTemporary) {
+          color = node.type === "point" ? "#ffddaa" : "#ffcc66";
+        }
 
         if (selected) {
           if (node.type === "point") {
@@ -936,6 +1081,7 @@ ${coordText}`;
         editorPanelEnabled = false;
         moveModeEnabled = false;
         clearSelection();
+        if (editorState.placementMode) cancelPlacement();
       }
       updatePanels();
       updateEditorStatus();
@@ -950,30 +1096,34 @@ ${coordText}`;
     addJoint1Button.addEventListener("click", () => {
       if (!editorEnabled) return;
       addEditorNode("joint", 1);
+      updatePanels();
     });
 
     addJoint2Button.addEventListener("click", () => {
       if (!editorEnabled) return;
       addEditorNode("joint", 2);
+      updatePanels();
     });
 
     addJoint3Button.addEventListener("click", () => {
       if (!editorEnabled) return;
       addEditorNode("joint", 3);
+      updatePanels();
     });
 
     addPointButton.addEventListener("click", () => {
       if (!editorEnabled) return;
       addEditorNode("point", 0);
+      updatePanels();
     });
 
     connectButton.addEventListener("click", () => {
-      if (!editorEnabled) return;
+      if (!editorEnabled || editorState.placementMode) return;
       connectSelectedNodes();
     });
 
     disconnectButton.addEventListener("click", () => {
-      if (!editorEnabled) return;
+      if (!editorEnabled || editorState.placementMode) return;
       disconnectSelectedNodes();
     });
 
@@ -984,12 +1134,35 @@ ${coordText}`;
       updateEditorStatus();
     });
 
+    toggleSymmetryButton.addEventListener("click", () => {
+      if (!editorEnabled) return;
+      editorState.symmetryMode = !editorState.symmetryMode;
+      updatePanels();
+      updateEditorStatus();
+    });
+
+    toggleMirrorPlaneButton.addEventListener("click", () => {
+      if (!editorEnabled) return;
+      editorState.showMirrorPlane = !editorState.showMirrorPlane;
+      updatePanels();
+    });
+
+    confirmPlacementButton.addEventListener("click", () => {
+      confirmPlacement();
+      updatePanels();
+    });
+
+    cancelPlacementButton.addEventListener("click", () => {
+      cancelPlacement();
+      updatePanels();
+    });
+
     clearSelectionButton.addEventListener("click", () => {
       clearSelection();
     });
 
     deleteSelectedButton.addEventListener("click", () => {
-      if (!editorEnabled) return;
+      if (!editorEnabled || editorState.placementMode) return;
       deleteSelectedNodes();
     });
 
@@ -1070,7 +1243,7 @@ ${coordText}`;
         const screenBase = getScreenStickBase();
         const lookBase = getLookStickBase();
 
-        if (editorEnabled) {
+        if (editorEnabled && !editorState.placementMode) {
           for (const t of e.changedTouches) {
             const pickedId = pickNodeAtScreen(t.clientX, t.clientY);
             if (pickedId !== null) {
@@ -1238,20 +1411,21 @@ ${coordText}`;
       const lookInputX = applyStickCurve(touchState.lookX, 0.10, 3.2);
       const lookInputY = applyStickCurve(touchState.lookY, 0.10, 3.2);
 
-      // 編集移動モード
-      if (editorEnabled && moveModeEnabled && getPrimarySelectedNode()) {
+      // 仮配置中 or 移動モード中はカメラを維持しつつ、上スティックと右縦でノード調整
+      if (editorEnabled && editorState.placementMode) {
+        if (touchState.screenId !== null || touchState.lookId !== null) {
+          movePlacementNodes(screenInputX, screenInputY, -lookInputY);
+        }
+      } else if (editorEnabled && moveModeEnabled && getPrimarySelectedNode()) {
         if (touchState.screenId !== null || touchState.lookId !== null) {
           movePrimarySelectedNode(screenInputX, screenInputY, -lookInputY);
         }
-        const limit = Math.PI / 2 - 0.05;
-        if (camera.pitch > limit) camera.pitch = limit;
-        if (camera.pitch < -limit) camera.pitch = -limit;
-        return;
       }
 
       const flatForward = normalize(vec(forward.x, 0, forward.z));
       const flatRight = normalize(vec(right.x, 0, right.z));
 
+      // 下スティックは常にカメラ系
       if (touchState.groundId !== null && !hasFigure()) {
         camera.position = add(camera.position, mul(flatRight, groundInputX * moveSpeed));
         camera.position = add(camera.position, mul(flatForward, -groundInputY * moveSpeed));
@@ -1289,11 +1463,15 @@ ${coordText}`;
         camera.pitch = Math.atan2(target.y - camera.position.y, horizontal);
       }
 
-      if (touchState.screenId !== null) {
-        camera.position = add(camera.position, mul(right, screenInputX * moveSpeed));
-        camera.position = add(camera.position, mul(up, -screenInputY * moveSpeed));
+      // 配置中や移動モード中は上スティックをノード側へ使うのでカメラ平行移動しない
+      if (!(editorEnabled && (editorState.placementMode || (moveModeEnabled && getPrimarySelectedNode())))) {
+        if (touchState.screenId !== null) {
+          camera.position = add(camera.position, mul(right, screenInputX * moveSpeed));
+          camera.position = add(camera.position, mul(up, -screenInputY * moveSpeed));
+        }
       }
 
+      // 右スティック横は通常カメラに残す
       if (touchState.lookId !== null) {
         if (hasFigure()) {
           const fig = getSelectedFigure();
@@ -1301,11 +1479,18 @@ ${coordText}`;
 
           const offset = sub(camera.position, target);
           let dist = length(offset);
-          dist += lookInputY * 0.35;
+
+          // 配置/移動中は縦ズームしない
+          if (!(editorEnabled && (editorState.placementMode || (moveModeEnabled && getPrimarySelectedNode())))) {
+            dist += lookInputY * 0.35;
+          }
+
           dist = clamp(dist, 2.0, 25.0);
 
           const dir = normalize(offset);
           camera.position = add(target, mul(dir, dist));
+
+          camera.yaw -= lookInputX * 0.01;
 
           camera.yaw = Math.atan2(target.x - camera.position.x, target.z - camera.position.z);
           const horizontal = Math.sqrt(
@@ -1316,7 +1501,10 @@ ${coordText}`;
         } else {
           const stickLookSpeed = 0.01;
           camera.yaw -= lookInputX * stickLookSpeed;
-          camera.pitch -= lookInputY * stickLookSpeed;
+
+          if (!(editorEnabled && (editorState.placementMode || (moveModeEnabled && getPrimarySelectedNode())))) {
+            camera.pitch -= lookInputY * stickLookSpeed;
+          }
         }
       }
 
@@ -1421,6 +1609,7 @@ ${coordText}`;
       drawBackground();
       drawGroundGrid();
       drawAxes();
+      drawMirrorPlane();
 
       for (const fig of figures) {
         drawStickFigure(fig);
