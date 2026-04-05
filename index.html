@@ -106,13 +106,13 @@
       position: absolute;
       top: 52px;
       right: 8px;
-      width: 206px;
-      max-width: 60vw;
+      width: 136px;
+      max-width: 46vw;
       color: white;
       background: rgba(0, 0, 0, 0.58);
       border: 1px solid rgba(255,255,255,0.18);
       border-radius: 10px;
-      padding: 10px;
+      padding: 8px;
       z-index: 25;
       display: none;
       pointer-events: auto;
@@ -153,6 +153,7 @@
       <button id="toggleInfoButton" class="uiButton">操作説明: OFF</button>
       <button id="toggleEditorButton" class="uiButton">人形作成: ON</button>
       <button id="toggleEditorPanelButton" class="uiButton">編集パネル: ON</button>
+      <button id="toggleStickOffsetButton" class="uiButton">スティック補正: ON</button>
     </div>
 
     <button id="resetButton" class="uiButton">RESET</button>
@@ -175,6 +176,10 @@ PC:
 平面離脱でX方向移動を許可
 対称モードONなら反対側にも自動生成
 保存機能で名前をつけてモデル保存可能
+
+スティック補正:
+ON = タッチ判定Yを少し上に補正
+OFF = 補正なし
   </div>
 
   <div id="editorPanel">
@@ -223,6 +228,7 @@ PC:
     const toggleInfoButton = document.getElementById("toggleInfoButton");
     const toggleEditorButton = document.getElementById("toggleEditorButton");
     const toggleEditorPanelButton = document.getElementById("toggleEditorPanelButton");
+    const toggleStickOffsetButton = document.getElementById("toggleStickOffsetButton");
     const infoPanel = document.getElementById("info");
     const editorPanel = document.getElementById("editorPanel");
 
@@ -393,6 +399,7 @@ PC:
     let editorPanelEnabled = true;
     let infoEnabled = false;
     let moveModeEnabled = false;
+    let stickOffsetEnabled = true;
 
     let nextNodeId = 1;
     let nextEdgeId = 1;
@@ -767,6 +774,7 @@ z=${primary.z.toFixed(2)}`
 対称モード: ${editorState.symmetryMode ? "ON" : "OFF"}
 平面拘束: ${editorState.planeConstraint ? "ON" : "OFF"}
 軸操作: ${editorState.activeGizmoAxis || "なし"}
+スティック補正: ${stickOffsetEnabled ? "ON" : "OFF"}
 
 ${coordText}`;
     }
@@ -782,6 +790,7 @@ ${coordText}`;
       toggleSymmetryButton.textContent = `対称モード: ${editorState.symmetryMode ? "ON" : "OFF"}`;
       toggleMirrorPlaneButton.textContent = `対称平面表示: ${editorState.showMirrorPlane ? "ON" : "OFF"}`;
       togglePlaneConstraintButton.textContent = `平面拘束: ${editorState.planeConstraint ? "ON" : "OFF"}`;
+      toggleStickOffsetButton.textContent = `スティック補正: ${stickOffsetEnabled ? "ON" : "OFF"}`;
 
       confirmPlacementButton.disabled = !editorState.placementMode;
       cancelPlacementButton.disabled = !editorState.placementMode;
@@ -1062,7 +1071,7 @@ ${coordText}`;
 
     function getLookStickBase() {
       const panelVisible = editorEnabled && editorPanelEnabled;
-      const panelWidth = panelVisible ? 206 : 0;
+      const panelWidth = panelVisible ? 136 : 0;
       const marginRight = panelVisible ? (panelWidth + 70) : 78;
       return { x: canvas.width - marginRight, y: canvas.height - 150 };
     }
@@ -1072,9 +1081,12 @@ ${coordText}`;
     const STICK_MAX_DIST = 20;
     const STICK_TOUCH_RANGE = 48;
 
-    const GROUND_STICK_TOUCH_OFFSET_Y = 70;
-    const SCREEN_STICK_TOUCH_OFFSET_Y = 70;
-    const LOOK_STICK_TOUCH_OFFSET_Y = 70;
+    const STICK_TOUCH_OFFSET_Y_ON = 70;
+    const STICK_TOUCH_OFFSET_Y_OFF = 0;
+
+    function getStickTouchOffsetY() {
+      return stickOffsetEnabled ? STICK_TOUCH_OFFSET_Y_ON : STICK_TOUCH_OFFSET_Y_OFF;
+    }
 
     const touchState = {
       groundId: null, screenId: null, lookId: null,
@@ -1100,6 +1112,7 @@ ${coordText}`;
         const groundBase = getGroundStickBase();
         const screenBase = getScreenStickBase();
         const lookBase = getLookStickBase();
+        const touchOffsetY = getStickTouchOffsetY();
 
         const gizmoNode = getInteractiveGizmoNode();
         if (editorEnabled && gizmoNode) {
@@ -1127,9 +1140,9 @@ ${coordText}`;
         }
 
         for (const t of e.changedTouches) {
-          const adjustedGroundY = t.clientY - GROUND_STICK_TOUCH_OFFSET_Y;
-          const adjustedScreenY = t.clientY - SCREEN_STICK_TOUCH_OFFSET_Y;
-          const adjustedLookY = t.clientY - LOOK_STICK_TOUCH_OFFSET_Y;
+          const adjustedGroundY = t.clientY - touchOffsetY;
+          const adjustedScreenY = t.clientY - touchOffsetY;
+          const adjustedLookY = t.clientY - touchOffsetY;
 
           const distGround = Math.hypot(t.clientX - groundBase.x, adjustedGroundY - groundBase.y);
           const distScreen = Math.hypot(t.clientX - screenBase.x, adjustedScreenY - screenBase.y);
@@ -1186,10 +1199,11 @@ ${coordText}`;
         const groundBase = getGroundStickBase();
         const screenBase = getScreenStickBase();
         const lookBase = getLookStickBase();
+        const touchOffsetY = getStickTouchOffsetY();
 
         for (const t of e.changedTouches) {
           if (t.identifier === touchState.groundId) {
-            const ay = t.clientY - GROUND_STICK_TOUCH_OFFSET_Y;
+            const ay = t.clientY - touchOffsetY;
             touchState.groundXPos = t.clientX;
             touchState.groundYPos = ay;
 
@@ -1207,7 +1221,7 @@ ${coordText}`;
           }
 
           if (t.identifier === touchState.screenId) {
-            const ay = t.clientY - SCREEN_STICK_TOUCH_OFFSET_Y;
+            const ay = t.clientY - touchOffsetY;
             touchState.screenXPos = t.clientX;
             touchState.screenYPos = ay;
 
@@ -1225,7 +1239,7 @@ ${coordText}`;
           }
 
           if (t.identifier === touchState.lookId) {
-            const ay = t.clientY - LOOK_STICK_TOUCH_OFFSET_Y;
+            const ay = t.clientY - touchOffsetY;
             touchState.lookXPos = t.clientX;
             touchState.lookYPos = ay;
 
@@ -1297,6 +1311,12 @@ ${coordText}`;
       if (!editorEnabled) return;
       editorPanelEnabled = !editorPanelEnabled;
       updatePanels();
+    });
+
+    toggleStickOffsetButton.addEventListener("click", () => {
+      stickOffsetEnabled = !stickOffsetEnabled;
+      updatePanels();
+      updateEditorStatus();
     });
 
     saveModelButton.addEventListener("click", () => {
