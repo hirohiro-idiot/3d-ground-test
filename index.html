@@ -819,6 +819,27 @@ ${coordText}`;
       return best;
     }
 
+    function getProjectedGizmoAxisDirection(node, axis) {
+      const gizmo = getGizmoInfo(node);
+      if (!gizmo) return null;
+
+      const originP = projectPoint(gizmo.origin);
+      let endP = null;
+
+      if (axis === "x") endP = projectPoint(gizmo.xEnd);
+      else if (axis === "y") endP = projectPoint(gizmo.yEnd);
+      else if (axis === "z") endP = projectPoint(gizmo.zEnd);
+
+      if (!originP.visible || !endP || !endP.visible) return null;
+
+      const dx = endP.x - originP.x;
+      const dy = endP.y - originP.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.0001) return null;
+
+      return { x: dx / len, y: dy / len };
+    }
+
     function applyMirrorAndPlane(node) {
       if (!node) return;
       if (node.mirrorPairId) {
@@ -973,7 +994,7 @@ ${coordText}`;
     function getLookStickBase() {
       const panelVisible = editorEnabled && editorPanelEnabled;
       const panelWidth = panelVisible ? 206 : 0;
-      const marginRight = panelVisible ? (panelWidth + 34) : 78;
+      const marginRight = panelVisible ? (panelWidth + 70) : 78;
       return { x: canvas.width - marginRight, y: canvas.height - 150 };
     }
 
@@ -1072,16 +1093,19 @@ ${coordText}`;
         const interactiveNode = getInteractiveGizmoNode();
 
         for (const t of e.changedTouches) {
-          if (editorState.gizmoTouchId !== null && t.identifier === editorState.gizmoTouchId && interactiveNode && editorState.activeGizmoAxis) {
+          if (editorState.gizmoTouchId !== null &&
+              t.identifier === editorState.gizmoTouchId &&
+              interactiveNode &&
+              editorState.activeGizmoAxis) {
+
             const dx = t.clientX - editorState.gizmoLastX;
             const dy = t.clientY - editorState.gizmoLastY;
 
-            let amount = 0;
-            if (editorState.activeGizmoAxis === "x") amount = dx;
-            else if (editorState.activeGizmoAxis === "y") amount = -dy;
-            else if (editorState.activeGizmoAxis === "z") amount = -dy;
-
-            moveNodeAlongAxis(interactiveNode, editorState.activeGizmoAxis, amount);
+            const dir = getProjectedGizmoAxisDirection(interactiveNode, editorState.activeGizmoAxis);
+            if (dir) {
+              const amount = dx * dir.x + dy * dir.y;
+              moveNodeAlongAxis(interactiveNode, editorState.activeGizmoAxis, amount);
+            }
 
             editorState.gizmoLastX = t.clientX;
             editorState.gizmoLastY = t.clientY;
