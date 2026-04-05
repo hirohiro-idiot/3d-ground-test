@@ -231,6 +231,9 @@
   </div>
 
   <script>
+    // =========================
+    // 基本
+    // =========================
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
 
@@ -687,7 +690,7 @@
     }
 
     // =========================
-    // 描画
+    // 3D描画関数
     // =========================
     function drawLine3D(a, b, color = "white", width = 1) {
       const pa = projectPoint(a);
@@ -772,8 +775,7 @@
     function drawEditorNodes() {
       for (const node of editorNodes) {
         const selected = selectedNodeIds.includes(node.id);
-        let color = getNodeColor(node);
-
+        const color = getNodeColor(node);
         const p = vec(node.x, node.y, node.z);
 
         if (selected) {
@@ -881,6 +883,20 @@
     deleteSelectedButton.addEventListener("click", () => {
       if (!editorEnabled) return;
       deleteSelectedNodes();
+    });
+
+    // =========================
+    // キー入力
+    // =========================
+    const keys = {};
+
+    window.addEventListener("keydown", (e) => {
+      keys[e.key] = true;
+      if (e.key === "r" || e.key === "R") resetCamera();
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.key] = false;
     });
 
     // =========================
@@ -1319,6 +1335,7 @@
       requestAnimationFrame(loop);
     }
 
+    // 初期化
     setupTouchControls();
     updatePanels();
     updateEditorStatus();
