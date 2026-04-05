@@ -177,7 +177,7 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
 人形作成モード:
 点や関節を追加すると仮配置モードに入る
 決定で配置確定 / キャンセルで取消
-軸ギズモをタップしてその軸方向に動かす
+軸ギズモ先端をドラッグしてその軸方向に動かす
 平面拘束ONなら基本は中心平面 x=0 上
 平面離脱でX方向移動を許可
 対称モードONなら反対側にも自動生成
@@ -250,9 +250,6 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
   </div>
 
   <script>
-    // =========================
-    // 基本
-    // =========================
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
 
@@ -292,21 +289,11 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
-    function vec(x, y, z) {
-      return { x, y, z };
-    }
-    function add(a, b) {
-      return vec(a.x + b.x, a.y + b.y, a.z + b.z);
-    }
-    function sub(a, b) {
-      return vec(a.x - b.x, a.y - b.y, a.z - b.z);
-    }
-    function mul(v, s) {
-      return vec(v.x * s, v.y * s, v.z * s);
-    }
-    function dot(a, b) {
-      return a.x * b.x + a.y * b.y + a.z * b.z;
-    }
+    function vec(x, y, z) { return { x, y, z }; }
+    function add(a, b) { return vec(a.x + b.x, a.y + b.y, a.z + b.z); }
+    function sub(a, b) { return vec(a.x - b.x, a.y - b.y, a.z - b.z); }
+    function mul(v, s) { return vec(v.x * s, v.y * s, v.z * s); }
+    function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
     function cross(a, b) {
       return vec(
         a.y * b.z - a.z * b.y,
@@ -314,25 +301,17 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
         a.x * b.y - a.y * b.x
       );
     }
-    function length(v) {
-      return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-    }
+    function length(v) { return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
     function normalize(v) {
       const len = length(v);
       if (len === 0) return vec(0, 0, 0);
       return vec(v.x / len, v.y / len, v.z / len);
     }
-    function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
-    }
-    function sign(v) {
-      if (v > 0) return 1;
-      if (v < 0) return -1;
-      return 0;
-    }
-    function degToRad(deg) {
-      return deg * Math.PI / 180;
-    }
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+    function sign(v) { return v > 0 ? 1 : v < 0 ? -1 : 0; }
+    function degToRad(deg) { return deg * Math.PI / 180; }
+    function distance2D(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+
     function applyStickCurve(v, deadzone = 0.08, exponent = 2.6) {
       const a = Math.abs(v);
       if (a < deadzone) return 0;
@@ -340,13 +319,7 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       const curved = Math.pow(normalized, exponent);
       return sign(v) * curved;
     }
-    function distance2D(ax, ay, bx, by) {
-      return Math.hypot(ax - bx, ay - by);
-    }
 
-    // =========================
-    // カメラ
-    // =========================
     const INITIAL_CAMERA = {
       position: vec(0, 2, -8),
       yaw: 0,
@@ -380,19 +353,9 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       const cy = Math.cos(camera.yaw);
       const sy = Math.sin(camera.yaw);
 
-      const forward = normalize(vec(
-        sy * cp,
-        sp,
-        cy * cp
-      ));
-
+      const forward = normalize(vec(sy * cp, sp, cy * cp));
       let right = cross(forward, worldUp);
-      if (length(right) < 0.0001) {
-        right = vec(1, 0, 0);
-      } else {
-        right = normalize(right);
-      }
-
+      right = length(right) < 0.0001 ? vec(1, 0, 0) : normalize(right);
       const up = normalize(cross(right, forward));
       return { forward, right, up };
     }
@@ -416,28 +379,41 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       };
     }
 
-    // =========================
-    // 床・座標軸
-    // =========================
+    function drawLine3D(a, b, color = "white", width = 1) {
+      const pa = projectPoint(a);
+      const pb = projectPoint(b);
+      if (!pa.visible || !pb.visible) return;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.stroke();
+    }
+
+    function drawPoint3D(p, color = "white", size = 4) {
+      const pp = projectPoint(p);
+      if (!pp.visible) return;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(pp.x, pp.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawSquare3D(p, color = "white", size = 8) {
+      const pp = projectPoint(p);
+      if (!pp.visible) return;
+      ctx.fillStyle = color;
+      ctx.fillRect(pp.x - size / 2, pp.y - size / 2, size, size);
+    }
+
     function drawGroundGrid() {
-      const xMin = -20;
-      const xMax = 20;
-      const zMin = 1;
-      const zMax = 40;
-      const step = 1;
-
+      const xMin = -20, xMax = 20, zMin = 1, zMax = 40, step = 1;
       for (let x = xMin; x <= xMax; x += step) {
-        const a = vec(x, 0, zMin);
-        const b = vec(x, 0, zMax);
-        const isMain = (x === 0);
-        drawLine3D(a, b, isMain ? "#ffffff" : "#666666", isMain ? 2 : 1);
+        drawLine3D(vec(x, 0, zMin), vec(x, 0, zMax), x === 0 ? "#ffffff" : "#666666", x === 0 ? 2 : 1);
       }
-
       for (let z = zMin; z <= zMax; z += step) {
-        const a = vec(xMin, 0, z);
-        const b = vec(xMax, 0, z);
-        const isMain = (z % 5 === 0);
-        drawLine3D(a, b, isMain ? "#888888" : "#444444", isMain ? 1.5 : 1);
+        drawLine3D(vec(xMin, 0, z), vec(xMax, 0, z), z % 5 === 0 ? "#888888" : "#444444", z % 5 === 0 ? 1.5 : 1);
       }
     }
 
@@ -447,9 +423,6 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       drawLine3D(vec(0, 0, 0), vec(0, 0, 3), "cyan", 2);
     }
 
-    // =========================
-    // 既存棒人間
-    // =========================
     const figures = [];
     let selectedFigureId = null;
     let nextFigureId = 1;
@@ -459,18 +432,10 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     function createFigure(x = 0, y = 0, z = 8) {
       return {
         id: nextFigureId++,
-        x,
-        y,
-        z,
+        x, y, z,
         joints: {
-          shoulderL: 0,
-          elbowL: 0,
-          shoulderR: 0,
-          elbowR: 0,
-          hipL: 0,
-          kneeL: 0,
-          hipR: 0,
-          kneeR: 0
+          shoulderL: 0, elbowL: 0, shoulderR: 0, elbowR: 0,
+          hipL: 0, kneeL: 0, hipR: 0, kneeR: 0
         }
       };
     }
@@ -478,24 +443,14 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     function getSelectedFigure() {
       return figures.find(f => f.id === selectedFigureId) || null;
     }
+    function hasFigure() { return !!getSelectedFigure(); }
+    function getFigureTarget(fig) { return vec(fig.x, fig.y + 1.0, fig.z); }
 
-    function hasFigure() {
-      return !!getSelectedFigure();
-    }
-
-    function getFigureTarget(fig) {
-      return vec(fig.x, fig.y + 1.0, fig.z);
-    }
-
-    const jointKeys = [
-      "shoulderL", "elbowL", "shoulderR", "elbowR",
-      "hipL", "kneeL", "hipR", "kneeR"
-    ];
+    const jointKeys = ["shoulderL", "elbowL", "shoulderR", "elbowR", "hipL", "kneeL", "hipR", "kneeR"];
 
     function syncJointPanelFromFigure() {
       const fig = getSelectedFigure();
       if (!fig) return;
-
       for (const key of jointKeys) {
         const slider = document.getElementById(`slider-${key}`);
         const value = document.getElementById(`val-${key}`);
@@ -507,7 +462,6 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     for (const key of jointKeys) {
       const slider = document.getElementById(`slider-${key}`);
       const value = document.getElementById(`val-${key}`);
-
       slider.addEventListener("input", () => {
         const fig = getSelectedFigure();
         if (!fig) return;
@@ -517,74 +471,66 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     }
 
     function computeStickFigurePose(fig) {
-      const baseX = fig.x;
-      const baseY = fig.y;
-      const baseZ = fig.z;
-
+      const baseX = fig.x, baseY = fig.y, baseZ = fig.z;
       const pelvis = vec(baseX, baseY + 0.80, baseZ);
-      const chest  = vec(baseX, baseY + 1.20, baseZ);
-      const neck   = vec(baseX, baseY + 1.50, baseZ);
-      const head   = vec(baseX, baseY + 1.80, baseZ);
+      const chest = vec(baseX, baseY + 1.20, baseZ);
+      const neck = vec(baseX, baseY + 1.50, baseZ);
+      const head = vec(baseX, baseY + 1.80, baseZ);
 
       const shoulderL = vec(baseX - 0.28, baseY + 1.20, baseZ);
       const shoulderR = vec(baseX + 0.28, baseY + 1.20, baseZ);
-
       const hipL = vec(baseX - 0.18, baseY + 0.80, baseZ);
       const hipR = vec(baseX + 0.18, baseY + 0.80, baseZ);
 
-      const upperArm = 0.40;
-      const lowerArm = 0.35;
-      const upperLeg = 0.45;
-      const lowerLeg = 0.40;
+      const upperArm = 0.40, lowerArm = 0.35, upperLeg = 0.45, lowerLeg = 0.40;
 
       function limbEnd(base, len, angleDeg, side) {
         const a = degToRad(angleDeg);
-        return vec(
-          base.x + side * len * Math.sin(a),
-          base.y - len * Math.cos(a),
-          base.z
-        );
+        return vec(base.x + side * len * Math.sin(a), base.y - len * Math.cos(a), base.z);
       }
-
       function limbEndFrom(base, len, totalAngleDeg, side) {
         const a = degToRad(totalAngleDeg);
-        return vec(
-          base.x + side * len * Math.sin(a),
-          base.y - len * Math.cos(a),
-          base.z
-        );
+        return vec(base.x + side * len * Math.sin(a), base.y - len * Math.cos(a), base.z);
       }
 
       const elbowL = limbEnd(shoulderL, upperArm, fig.joints.shoulderL, -1);
-      const handL  = limbEndFrom(elbowL, lowerArm, fig.joints.shoulderL + fig.joints.elbowL, -1);
-
+      const handL = limbEndFrom(elbowL, lowerArm, fig.joints.shoulderL + fig.joints.elbowL, -1);
       const elbowR = limbEnd(shoulderR, upperArm, fig.joints.shoulderR, 1);
-      const handR  = limbEndFrom(elbowR, lowerArm, fig.joints.shoulderR + fig.joints.elbowR, 1);
-
+      const handR = limbEndFrom(elbowR, lowerArm, fig.joints.shoulderR + fig.joints.elbowR, 1);
       const kneeL = limbEnd(hipL, upperLeg, fig.joints.hipL, -1);
       const footL = limbEndFrom(kneeL, lowerLeg, fig.joints.hipL + fig.joints.kneeL, -1);
-
       const kneeR = limbEnd(hipR, upperLeg, fig.joints.hipR, 1);
       const footR = limbEndFrom(kneeR, lowerLeg, fig.joints.hipR + fig.joints.kneeR, 1);
 
-      return {
-        head, neck, chest, pelvis,
-        shoulderL, shoulderR,
-        elbowL, elbowR,
-        handL, handR,
-        hipL, hipR,
-        kneeL, kneeR,
-        footL, footR
-      };
+      return { head, neck, chest, pelvis, shoulderL, shoulderR, elbowL, elbowR, handL, handR, hipL, hipR, kneeL, kneeR, footL, footR };
     }
 
-    // =========================
-    // 作成エディタ
-    // =========================
+    function drawStickFigure(fig) {
+      const p = computeStickFigurePose(fig);
+      drawLine3D(p.head, p.neck, "white", 2);
+      drawLine3D(p.neck, p.chest, "white", 2);
+      drawLine3D(p.chest, p.pelvis, "white", 2);
+      drawLine3D(p.chest, p.shoulderL, "white", 2);
+      drawLine3D(p.shoulderL, p.elbowL, "white", 2);
+      drawLine3D(p.elbowL, p.handL, "white", 2);
+      drawLine3D(p.chest, p.shoulderR, "white", 2);
+      drawLine3D(p.shoulderR, p.elbowR, "white", 2);
+      drawLine3D(p.elbowR, p.handR, "white", 2);
+      drawLine3D(p.pelvis, p.hipL, "white", 2);
+      drawLine3D(p.hipL, p.kneeL, "white", 2);
+      drawLine3D(p.kneeL, p.footL, "white", 2);
+      drawLine3D(p.pelvis, p.hipR, "white", 2);
+      drawLine3D(p.hipR, p.kneeR, "white", 2);
+      drawLine3D(p.kneeR, p.footR, "white", 2);
+      drawPoint3D(p.head, "#ffffff", 4);
+      drawPoint3D(p.neck, "#dddddd", 2.5);
+      drawPoint3D(p.chest, "#dddddd", 2.5);
+      drawPoint3D(p.pelvis, "#dddddd", 2.5);
+    }
+
     let editorEnabled = false;
     let editorPanelEnabled = false;
     let moveModeEnabled = false;
-
     let nextNodeId = 1;
     let nextEdgeId = 1;
 
@@ -601,7 +547,10 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       showMirrorPlane: true,
       mirrorValue: 0,
       planeConstraint: true,
-      activeGizmoAxis: null
+      activeGizmoAxis: null,
+      gizmoTouchId: null,
+      gizmoLastX: 0,
+      gizmoLastY: 0
     };
 
     function getNodeById(id) {
@@ -609,26 +558,19 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     }
 
     function edgeExists(a, b) {
-      return editorEdges.some(e =>
-        (e.a === a && e.b === b) || (e.a === b && e.b === a)
-      );
+      return editorEdges.some(e => (e.a === a && e.b === b) || (e.a === b && e.b === a));
     }
 
     function removeEdgesForNode(nodeId) {
       for (let i = editorEdges.length - 1; i >= 0; i--) {
-        if (editorEdges[i].a === nodeId || editorEdges[i].b === nodeId) {
-          editorEdges.splice(i, 1);
-        }
+        if (editorEdges[i].a === nodeId || editorEdges[i].b === nodeId) editorEdges.splice(i, 1);
       }
     }
 
     function getSpawnPosition(onMirrorPlane = false) {
       const { forward } = getCameraBasis();
       const base = add(camera.position, mul(forward, 6));
-      if (onMirrorPlane) {
-        return vec(editorState.mirrorValue, base.y, base.z);
-      }
-      return vec(base.x, base.y, base.z);
+      return onMirrorPlane ? vec(editorState.mirrorValue, base.y, base.z) : vec(base.x, base.y, base.z);
     }
 
     function createEditorNodeData(type, dof, p, mirrored = false) {
@@ -672,6 +614,7 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       editorState.activePlacementNodeId = node.id;
       editorState.activePlacementMirrorId = mirrorNode ? mirrorNode.id : null;
       editorState.activeGizmoAxis = null;
+      editorState.gizmoTouchId = null;
 
       updateEditorStatus();
     }
@@ -679,22 +622,20 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     function clearSelection() {
       selectedNodeIds.length = 0;
       editorState.activeGizmoAxis = null;
+      editorState.gizmoTouchId = null;
       updateEditorStatus();
     }
 
     function toggleNodeSelection(id) {
       if (editorState.placementMode) return;
-
       const idx = selectedNodeIds.indexOf(id);
-      if (idx >= 0) {
-        selectedNodeIds.splice(idx, 1);
-      } else {
-        if (selectedNodeIds.length >= 2) {
-          selectedNodeIds.shift();
-        }
+      if (idx >= 0) selectedNodeIds.splice(idx, 1);
+      else {
+        if (selectedNodeIds.length >= 2) selectedNodeIds.shift();
         selectedNodeIds.push(id);
       }
       editorState.activeGizmoAxis = null;
+      editorState.gizmoTouchId = null;
       updateEditorStatus();
     }
 
@@ -714,35 +655,29 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     function confirmPlacement() {
       const node = getPlacementNode();
       if (!node) return;
-
       node.isTemporary = false;
       const mirror = getPlacementMirrorNode();
       if (mirror) mirror.isTemporary = false;
-
       editorState.placementMode = false;
       editorState.activePlacementNodeId = null;
       editorState.activePlacementMirrorId = null;
       editorState.activeGizmoAxis = null;
+      editorState.gizmoTouchId = null;
       updateEditorStatus();
     }
 
     function cancelPlacement() {
-      const nodeId = editorState.activePlacementNodeId;
-      const mirrorId = editorState.activePlacementMirrorId;
-
-      if (nodeId !== null) {
-        const idx = editorNodes.findIndex(n => n.id === nodeId);
+      const ids = [editorState.activePlacementNodeId, editorState.activePlacementMirrorId];
+      for (const id of ids) {
+        if (id == null) continue;
+        const idx = editorNodes.findIndex(n => n.id === id);
         if (idx >= 0) editorNodes.splice(idx, 1);
       }
-      if (mirrorId !== null) {
-        const idx = editorNodes.findIndex(n => n.id === mirrorId);
-        if (idx >= 0) editorNodes.splice(idx, 1);
-      }
-
       editorState.placementMode = false;
       editorState.activePlacementNodeId = null;
       editorState.activePlacementMirrorId = null;
       editorState.activeGizmoAxis = null;
+      editorState.gizmoTouchId = null;
       clearSelection();
       updateEditorStatus();
     }
@@ -750,26 +685,17 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     function connectSelectedNodes() {
       if (selectedNodeIds.length !== 2) return;
       const [a, b] = selectedNodeIds;
-      if (a === b) return;
-      if (edgeExists(a, b)) return;
-
-      editorEdges.push({
-        id: nextEdgeId++,
-        a,
-        b
-      });
+      if (a === b || edgeExists(a, b)) return;
+      editorEdges.push({ id: nextEdgeId++, a, b });
       updateEditorStatus();
     }
 
     function disconnectSelectedNodes() {
       if (selectedNodeIds.length !== 2) return;
       const [a, b] = selectedNodeIds;
-
       for (let i = editorEdges.length - 1; i >= 0; i--) {
         const e = editorEdges[i];
-        if ((e.a === a && e.b === b) || (e.a === b && e.b === a)) {
-          editorEdges.splice(i, 1);
-        }
+        if ((e.a === a && e.b === b) || (e.a === b && e.b === a)) editorEdges.splice(i, 1);
       }
       updateEditorStatus();
     }
@@ -811,7 +737,7 @@ z=${primary.z.toFixed(2)}`
 なし`;
 
       editorStatus.textContent =
-        `ノード数: ${editorNodes.length}
+`ノード数: ${editorNodes.length}
 接続数: ${editorEdges.length}
 面データ数: ${editorFaces.length}
 選択: ${selectedText.length ? selectedText.join(" / ") : "なし"}
@@ -846,11 +772,9 @@ ${coordText}`;
     function pickNodeAtScreen(x, y) {
       let bestId = null;
       let bestDist = Infinity;
-
       for (const node of editorNodes) {
         const pp = projectPoint(vec(node.x, node.y, node.z));
         if (!pp.visible) continue;
-
         const dist = distance2D(pp.x, pp.y, x, y);
         if (dist < 24 && dist < bestDist) {
           bestDist = dist;
@@ -863,15 +787,11 @@ ${coordText}`;
     function getGizmoInfo(node) {
       if (!node) return null;
       const origin = vec(node.x, node.y, node.z);
-      const xEnd = vec(node.x + 0.8, node.y, node.z);
-      const yEnd = vec(node.x, node.y + 0.8, node.z);
-      const zEnd = vec(node.x, node.y, node.z + 0.8);
-
       return {
         origin,
-        xEnd,
-        yEnd,
-        zEnd
+        xEnd: vec(node.x + 0.8, node.y, node.z),
+        yEnd: vec(node.x, node.y + 0.8, node.z),
+        zEnd: vec(node.x, node.y, node.z + 0.8)
       };
     }
 
@@ -879,23 +799,19 @@ ${coordText}`;
       const gizmo = getGizmoInfo(node);
       if (!gizmo) return null;
 
-      const px = projectPoint(gizmo.xEnd);
-      const py = projectPoint(gizmo.yEnd);
-      const pz = projectPoint(gizmo.zEnd);
+      const entries = [
+        ["x", projectPoint(gizmo.xEnd)],
+        ["y", projectPoint(gizmo.yEnd)],
+        ["z", projectPoint(gizmo.zEnd)]
+      ];
 
       let best = null;
       let bestDist = Infinity;
 
-      const entries = [
-        ["x", px],
-        ["y", py],
-        ["z", pz]
-      ];
-
       for (const [axis, p] of entries) {
         if (!p.visible) continue;
         const d = distance2D(p.x, p.y, x, y);
-        if (d < 22 && d < bestDist) {
+        if (d < 26 && d < bestDist) {
           bestDist = d;
           best = axis;
         }
@@ -905,7 +821,6 @@ ${coordText}`;
 
     function applyMirrorAndPlane(node) {
       if (!node) return;
-
       if (node.mirrorPairId) {
         const mirror = getNodeById(node.mirrorPairId);
         if (mirror) {
@@ -920,63 +835,20 @@ ${coordText}`;
 
     function moveNodeAlongAxis(node, axis, amount) {
       if (!node) return;
+      const speed = 0.02;
 
-      const speed = 0.12;
-
-      if (axis === "x") {
-        node.x += amount * speed;
-      } else if (axis === "y") {
-        node.y += amount * speed;
-      } else if (axis === "z") {
-        node.z += amount * speed;
-      }
+      if (axis === "x") node.x += amount * speed;
+      else if (axis === "y") node.y += amount * speed;
+      else if (axis === "z") node.z += amount * speed;
 
       applyMirrorAndPlane(node);
       updateEditorStatus();
     }
 
-    // =========================
-    // 描画関数
-    // =========================
-    function drawLine3D(a, b, color = "white", width = 1) {
-      const pa = projectPoint(a);
-      const pb = projectPoint(b);
-      if (!pa.visible || !pb.visible) return;
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.beginPath();
-      ctx.moveTo(pa.x, pa.y);
-      ctx.lineTo(pb.x, pb.y);
-      ctx.stroke();
-    }
-
-    function drawPoint3D(p, color = "white", size = 4) {
-      const pp = projectPoint(p);
-      if (!pp.visible) return;
-
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(pp.x, pp.y, size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    function drawSquare3D(p, color = "white", size = 8) {
-      const pp = projectPoint(p);
-      if (!pp.visible) return;
-
-      ctx.fillStyle = color;
-      ctx.fillRect(pp.x - size / 2, pp.y - size / 2, size, size);
-    }
-
     function drawMirrorPlane() {
       if (!editorEnabled || !editorState.showMirrorPlane) return;
-
       const x = editorState.mirrorValue;
-      const y0 = -1;
-      const y1 = 4;
-      const z0 = 2;
-      const z1 = 20;
+      const y0 = -1, y1 = 4, z0 = 2, z1 = 20;
 
       for (let y = y0; y <= y1; y += 1) {
         drawLine3D(vec(x, y, z0), vec(x, y, z1), "rgba(120,160,255,0.22)", 1);
@@ -986,35 +858,6 @@ ${coordText}`;
       }
       drawLine3D(vec(x, y0, z0), vec(x, y1, z0), "rgba(160,220,255,0.55)", 2);
       drawLine3D(vec(x, y0, z1), vec(x, y1, z1), "rgba(160,220,255,0.55)", 2);
-    }
-
-    function drawStickFigure(fig) {
-      const p = computeStickFigurePose(fig);
-
-      drawLine3D(p.head, p.neck, "white", 2);
-      drawLine3D(p.neck, p.chest, "white", 2);
-      drawLine3D(p.chest, p.pelvis, "white", 2);
-
-      drawLine3D(p.chest, p.shoulderL, "white", 2);
-      drawLine3D(p.shoulderL, p.elbowL, "white", 2);
-      drawLine3D(p.elbowL, p.handL, "white", 2);
-
-      drawLine3D(p.chest, p.shoulderR, "white", 2);
-      drawLine3D(p.shoulderR, p.elbowR, "white", 2);
-      drawLine3D(p.elbowR, p.handR, "white", 2);
-
-      drawLine3D(p.pelvis, p.hipL, "white", 2);
-      drawLine3D(p.hipL, p.kneeL, "white", 2);
-      drawLine3D(p.kneeL, p.footL, "white", 2);
-
-      drawLine3D(p.pelvis, p.hipR, "white", 2);
-      drawLine3D(p.hipR, p.kneeR, "white", 2);
-      drawLine3D(p.kneeR, p.footR, "white", 2);
-
-      drawPoint3D(p.head, "#ffffff", 4);
-      drawPoint3D(p.neck, "#dddddd", 2.5);
-      drawPoint3D(p.chest, "#dddddd", 2.5);
-      drawPoint3D(p.pelvis, "#dddddd", 2.5);
     }
 
     function drawEditorEdges() {
@@ -1028,12 +871,7 @@ ${coordText}`;
           ((selectedNodeIds[0] === edge.a && selectedNodeIds[1] === edge.b) ||
            (selectedNodeIds[0] === edge.b && selectedNodeIds[1] === edge.a));
 
-        drawLine3D(
-          vec(a.x, a.y, a.z),
-          vec(b.x, b.y, b.z),
-          isSelectedPair ? "#ff66ff" : "#aaaaaa",
-          isSelectedPair ? 3 : 2
-        );
+        drawLine3D(vec(a.x, a.y, a.z), vec(b.x, b.y, b.z), isSelectedPair ? "#ff66ff" : "#aaaaaa", isSelectedPair ? 3 : 2);
       }
     }
 
@@ -1043,34 +881,22 @@ ${coordText}`;
         let color = getNodeColor(node);
         const p = vec(node.x, node.y, node.z);
 
-        if (node.isTemporary) {
-          color = node.type === "point" ? "#ffddaa" : "#ffcc66";
-        }
+        if (node.isTemporary) color = node.type === "point" ? "#ffddaa" : "#ffcc66";
 
         if (selected) {
-          if (node.type === "point") {
-            drawSquare3D(p, "#ff4444", 14);
-          } else {
-            drawPoint3D(p, "#ff4444", 7);
-          }
+          if (node.type === "point") drawSquare3D(p, "#ff4444", 14);
+          else drawPoint3D(p, "#ff4444", 7);
         } else {
-          if (node.type === "point") {
-            drawSquare3D(p, color, 10);
-          } else {
-            drawPoint3D(p, color, 5);
-          }
+          if (node.type === "point") drawSquare3D(p, color, 10);
+          else drawPoint3D(p, color, 5);
         }
       }
     }
 
     function drawGizmo() {
       let node = null;
-      if (editorState.placementMode) {
-        node = getPlacementNode();
-      } else if (moveModeEnabled) {
-        node = getPrimarySelectedNode();
-      }
-
+      if (editorState.placementMode) node = getPlacementNode();
+      else if (moveModeEnabled) node = getPrimarySelectedNode();
       if (!node) return;
 
       const g = getGizmoInfo(node);
@@ -1097,21 +923,265 @@ ${coordText}`;
     function drawDebugText() {
       ctx.fillStyle = "white";
       ctx.font = "11px sans-serif";
-      ctx.fillText(
-        `camera: (${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)})`,
-        8,
-        canvas.height - 30
-      );
-      ctx.fillText(
-        `yaw: ${camera.yaw.toFixed(2)}   pitch: ${camera.pitch.toFixed(2)}`,
-        8,
-        canvas.height - 15
-      );
+      ctx.fillText(`camera: (${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)})`, 8, canvas.height - 30);
+      ctx.fillText(`yaw: ${camera.yaw.toFixed(2)}   pitch: ${camera.pitch.toFixed(2)}`, 8, canvas.height - 15);
     }
 
-    // =========================
-    // UIイベント
-    // =========================
+    function drawStick(base, knobX, knobY, strokeColor, fillColor) {
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(base.x, base.y, STICK_BASE_RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(base.x, base.y, 2, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = fillColor;
+      ctx.beginPath();
+      ctx.arc(knobX, knobY, STICK_KNOB_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function getKnobPosition(base, xPos, yPos, activeId) {
+      let knobX = base.x, knobY = base.y;
+      if (activeId !== null) {
+        const dx = xPos - base.x;
+        const dy = yPos - base.y;
+        const dist = Math.hypot(dx, dy);
+
+        let mx = dx, my = dy;
+        if (dist > STICK_MAX_DIST && dist > 0) {
+          mx = dx * STICK_MAX_DIST / dist;
+          my = dy * STICK_MAX_DIST / dist;
+        }
+        knobX = base.x + mx;
+        knobY = base.y + my;
+      }
+      return { knobX, knobY };
+    }
+
+    function getGroundStickBase() {
+      return { x: 78, y: canvas.height - 150 };
+    }
+
+    function getScreenStickBase() {
+      return { x: 78, y: canvas.height - 220 };
+    }
+
+    function getLookStickBase() {
+      const panelVisible = editorEnabled && editorPanelEnabled;
+      const panelWidth = panelVisible ? 206 : 0;
+      const marginRight = panelVisible ? (panelWidth + 34) : 78;
+      return { x: canvas.width - marginRight, y: canvas.height - 150 };
+    }
+
+    const STICK_BASE_RADIUS = 30;
+    const STICK_KNOB_RADIUS = 13;
+    const STICK_MAX_DIST = 20;
+    const STICK_TOUCH_RANGE = 48;
+
+    const GROUND_STICK_TOUCH_OFFSET_Y = 70;
+    const SCREEN_STICK_TOUCH_OFFSET_Y = 70;
+    const LOOK_STICK_TOUCH_OFFSET_Y = 70;
+
+    const touchState = {
+      groundId: null, screenId: null, lookId: null,
+      groundXPos: 0, groundYPos: 0,
+      screenXPos: 0, screenYPos: 0,
+      lookXPos: 0, lookYPos: 0,
+      groundX: 0, groundY: 0,
+      screenX: 0, screenY: 0,
+      lookX: 0, lookY: 0
+    };
+
+    function getInteractiveGizmoNode() {
+      if (editorState.placementMode) return getPlacementNode();
+      if (moveModeEnabled) return getPrimarySelectedNode();
+      return null;
+    }
+
+    function setupTouchControls() {
+      canvas.addEventListener("touchstart", (e) => {
+        if (e.target !== canvas) return;
+        e.preventDefault();
+
+        const groundBase = getGroundStickBase();
+        const screenBase = getScreenStickBase();
+        const lookBase = getLookStickBase();
+
+        const gizmoNode = getInteractiveGizmoNode();
+        if (editorEnabled && gizmoNode) {
+          for (const t of e.changedTouches) {
+            const axis = pickGizmoAxisAtScreen(t.clientX, t.clientY, gizmoNode);
+            if (axis) {
+              editorState.activeGizmoAxis = axis;
+              editorState.gizmoTouchId = t.identifier;
+              editorState.gizmoLastX = t.clientX;
+              editorState.gizmoLastY = t.clientY;
+              updateEditorStatus();
+              return;
+            }
+          }
+        }
+
+        if (editorEnabled && !editorState.placementMode) {
+          for (const t of e.changedTouches) {
+            const pickedId = pickNodeAtScreen(t.clientX, t.clientY);
+            if (pickedId !== null) {
+              toggleNodeSelection(pickedId);
+              return;
+            }
+          }
+        }
+
+        for (const t of e.changedTouches) {
+          const adjustedGroundY = t.clientY - GROUND_STICK_TOUCH_OFFSET_Y;
+          const adjustedScreenY = t.clientY - SCREEN_STICK_TOUCH_OFFSET_Y;
+          const adjustedLookY = t.clientY - LOOK_STICK_TOUCH_OFFSET_Y;
+
+          const distGround = Math.hypot(t.clientX - groundBase.x, adjustedGroundY - groundBase.y);
+          const distScreen = Math.hypot(t.clientX - screenBase.x, adjustedScreenY - screenBase.y);
+          const distLook = Math.hypot(t.clientX - lookBase.x, adjustedLookY - lookBase.y);
+
+          if (distGround <= STICK_TOUCH_RANGE && touchState.groundId === null) {
+            touchState.groundId = t.identifier;
+            touchState.groundXPos = t.clientX;
+            touchState.groundYPos = adjustedGroundY;
+            continue;
+          }
+          if (distScreen <= STICK_TOUCH_RANGE && touchState.screenId === null) {
+            touchState.screenId = t.identifier;
+            touchState.screenXPos = t.clientX;
+            touchState.screenYPos = adjustedScreenY;
+            continue;
+          }
+          if (distLook <= STICK_TOUCH_RANGE && touchState.lookId === null) {
+            touchState.lookId = t.identifier;
+            touchState.lookXPos = t.clientX;
+            touchState.lookYPos = adjustedLookY;
+            continue;
+          }
+        }
+      }, { passive: false });
+
+      canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+
+        const interactiveNode = getInteractiveGizmoNode();
+
+        for (const t of e.changedTouches) {
+          if (editorState.gizmoTouchId !== null && t.identifier === editorState.gizmoTouchId && interactiveNode && editorState.activeGizmoAxis) {
+            const dx = t.clientX - editorState.gizmoLastX;
+            const dy = t.clientY - editorState.gizmoLastY;
+
+            let amount = 0;
+            if (editorState.activeGizmoAxis === "x") amount = dx;
+            else if (editorState.activeGizmoAxis === "y") amount = -dy;
+            else if (editorState.activeGizmoAxis === "z") amount = -dy;
+
+            moveNodeAlongAxis(interactiveNode, editorState.activeGizmoAxis, amount);
+
+            editorState.gizmoLastX = t.clientX;
+            editorState.gizmoLastY = t.clientY;
+            continue;
+          }
+        }
+
+        const groundBase = getGroundStickBase();
+        const screenBase = getScreenStickBase();
+        const lookBase = getLookStickBase();
+
+        for (const t of e.changedTouches) {
+          if (t.identifier === touchState.groundId) {
+            const ay = t.clientY - GROUND_STICK_TOUCH_OFFSET_Y;
+            touchState.groundXPos = t.clientX;
+            touchState.groundYPos = ay;
+
+            const dx = t.clientX - groundBase.x;
+            const dy = ay - groundBase.y;
+            const dist = Math.hypot(dx, dy);
+
+            let mx = dx, my = dy;
+            if (dist > STICK_MAX_DIST && dist > 0) {
+              mx = dx * STICK_MAX_DIST / dist;
+              my = dy * STICK_MAX_DIST / dist;
+            }
+            touchState.groundX = clamp(mx / STICK_MAX_DIST, -1, 1);
+            touchState.groundY = clamp(my / STICK_MAX_DIST, -1, 1);
+          }
+
+          if (t.identifier === touchState.screenId) {
+            const ay = t.clientY - SCREEN_STICK_TOUCH_OFFSET_Y;
+            touchState.screenXPos = t.clientX;
+            touchState.screenYPos = ay;
+
+            const dx = t.clientX - screenBase.x;
+            const dy = ay - screenBase.y;
+            const dist = Math.hypot(dx, dy);
+
+            let mx = dx, my = dy;
+            if (dist > STICK_MAX_DIST && dist > 0) {
+              mx = dx * STICK_MAX_DIST / dist;
+              my = dy * STICK_MAX_DIST / dist;
+            }
+            touchState.screenX = clamp(mx / STICK_MAX_DIST, -1, 1);
+            touchState.screenY = clamp(my / STICK_MAX_DIST, -1, 1);
+          }
+
+          if (t.identifier === touchState.lookId) {
+            const ay = t.clientY - LOOK_STICK_TOUCH_OFFSET_Y;
+            touchState.lookXPos = t.clientX;
+            touchState.lookYPos = ay;
+
+            const dx = t.clientX - lookBase.x;
+            const dy = ay - lookBase.y;
+            const dist = Math.hypot(dx, dy);
+
+            let mx = dx, my = dy;
+            if (dist > STICK_MAX_DIST && dist > 0) {
+              mx = dx * STICK_MAX_DIST / dist;
+              my = dy * STICK_MAX_DIST / dist;
+            }
+            touchState.lookX = clamp(mx / STICK_MAX_DIST, -1, 1);
+            touchState.lookY = clamp(my / STICK_MAX_DIST, -1, 1);
+          }
+        }
+      }, { passive: false });
+
+      function endTouch(e) {
+        e.preventDefault();
+
+        for (const t of e.changedTouches) {
+          if (t.identifier === editorState.gizmoTouchId) {
+            editorState.gizmoTouchId = null;
+            editorState.activeGizmoAxis = null;
+          }
+
+          if (t.identifier === touchState.groundId) {
+            touchState.groundId = null;
+            touchState.groundX = 0;
+            touchState.groundY = 0;
+          }
+          if (t.identifier === touchState.screenId) {
+            touchState.screenId = null;
+            touchState.screenX = 0;
+            touchState.screenY = 0;
+          }
+          if (t.identifier === touchState.lookId) {
+            touchState.lookId = null;
+            touchState.lookX = 0;
+            touchState.lookY = 0;
+          }
+        }
+        updateEditorStatus();
+      }
+
+      canvas.addEventListener("touchend", endTouch, { passive: false });
+      canvas.addEventListener("touchcancel", endTouch, { passive: false });
+    }
+
     toggleInfoButton.addEventListener("click", () => {
       infoEnabled = !infoEnabled;
       updatePanels();
@@ -1129,13 +1199,10 @@ ${coordText}`;
     deleteFigureButton.addEventListener("click", () => {
       const fig = getSelectedFigure();
       if (!fig) return;
-
       const index = figures.findIndex(f => f.id === fig.id);
       if (index >= 0) figures.splice(index, 1);
-
       selectedFigureId = figures.length ? figures[figures.length - 1].id : null;
       if (!selectedFigureId) jointPanelEnabled = false;
-
       updatePanels();
       syncJointPanelFromFigure();
     });
@@ -1202,6 +1269,7 @@ ${coordText}`;
       if (!editorEnabled) return;
       moveModeEnabled = !moveModeEnabled;
       editorState.activeGizmoAxis = null;
+      editorState.gizmoTouchId = null;
       updatePanels();
       updateEditorStatus();
     });
@@ -1254,250 +1322,28 @@ ${coordText}`;
       deleteSelectedNodes();
     });
 
-    // =========================
-    // キー入力
-    // =========================
     const keys = {};
-
     window.addEventListener("keydown", (e) => {
       keys[e.key] = true;
       if (e.key === "r" || e.key === "R") resetCamera();
     });
-
     window.addEventListener("keyup", (e) => {
       keys[e.key] = false;
     });
 
-    // =========================
-    // スティック
-    // =========================
-    function getGroundStickBase() {
-      return {
-        x: 78,
-        y: canvas.height - 150
-      };
+    function drawTouchUI() {
+      const groundBase = getGroundStickBase();
+      const screenBase = getScreenStickBase();
+      const lookBase = getLookStickBase();
+
+      const g = getKnobPosition(groundBase, touchState.groundXPos, touchState.groundYPos, touchState.groundId);
+      const s = getKnobPosition(screenBase, touchState.screenXPos, touchState.screenYPos, touchState.screenId);
+      const l = getKnobPosition(lookBase, touchState.lookXPos, touchState.lookYPos, touchState.lookId);
+
+      drawStick(groundBase, g.knobX, g.knobY, "rgba(255,255,255,0.35)", "rgba(255,255,255,0.25)");
+      drawStick(screenBase, s.knobX, s.knobY, "rgba(180,255,180,0.40)", "rgba(180,255,180,0.22)");
+      drawStick(lookBase, l.knobX, l.knobY, "rgba(100,180,255,0.45)", "rgba(100,180,255,0.28)");
     }
-
-    function getScreenStickBase() {
-      return {
-        x: 78,
-        y: canvas.height - 220
-      };
-    }
-
-    function getLookStickBase() {
-      const panelVisible = editorEnabled && editorPanelEnabled;
-      const panelWidth = panelVisible ? 206 : 0;
-      const marginRight = panelVisible ? (panelWidth + 34) : 78;
-      return {
-        x: canvas.width - marginRight,
-        y: canvas.height - 150
-      };
-    }
-
-    const STICK_BASE_RADIUS = 30;
-    const STICK_KNOB_RADIUS = 13;
-    const STICK_MAX_DIST = 20;
-    const STICK_TOUCH_RANGE = 48;
-
-    const GROUND_STICK_TOUCH_OFFSET_Y = 70;
-    const SCREEN_STICK_TOUCH_OFFSET_Y = 70;
-    const LOOK_STICK_TOUCH_OFFSET_Y = 70;
-
-    const touchState = {
-      groundId: null,
-      screenId: null,
-      lookId: null,
-
-      groundXPos: 0,
-      groundYPos: 0,
-      screenXPos: 0,
-      screenYPos: 0,
-      lookXPos: 0,
-      lookYPos: 0,
-
-      groundX: 0,
-      groundY: 0,
-      screenX: 0,
-      screenY: 0,
-      lookX: 0,
-      lookY: 0
-    };
-
-    function getInteractiveGizmoNode() {
-      if (editorState.placementMode) return getPlacementNode();
-      if (moveModeEnabled) return getPrimarySelectedNode();
-      return null;
-    }
-
-    function setupTouchControls() {
-      canvas.addEventListener("touchstart", (e) => {
-        const target = e.target;
-        if (target !== canvas) return;
-        e.preventDefault();
-
-        const groundBase = getGroundStickBase();
-        const screenBase = getScreenStickBase();
-        const lookBase = getLookStickBase();
-
-        const gizmoNode = getInteractiveGizmoNode();
-        if (editorEnabled && gizmoNode) {
-          for (const t of e.changedTouches) {
-            const axis = pickGizmoAxisAtScreen(t.clientX, t.clientY, gizmoNode);
-            if (axis) {
-              editorState.activeGizmoAxis = axis;
-              updateEditorStatus();
-              return;
-            }
-          }
-        }
-
-        if (editorEnabled && !editorState.placementMode) {
-          for (const t of e.changedTouches) {
-            const pickedId = pickNodeAtScreen(t.clientX, t.clientY);
-            if (pickedId !== null) {
-              toggleNodeSelection(pickedId);
-              return;
-            }
-          }
-        }
-
-        for (const t of e.changedTouches) {
-          const adjustedGroundY = t.clientY - GROUND_STICK_TOUCH_OFFSET_Y;
-          const adjustedScreenY = t.clientY - SCREEN_STICK_TOUCH_OFFSET_Y;
-          const adjustedLookY = t.clientY - LOOK_STICK_TOUCH_OFFSET_Y;
-
-          const distGround = Math.hypot(t.clientX - groundBase.x, adjustedGroundY - groundBase.y);
-          const distScreen = Math.hypot(t.clientX - screenBase.x, adjustedScreenY - screenBase.y);
-          const distLook = Math.hypot(t.clientX - lookBase.x, adjustedLookY - lookBase.y);
-
-          if (distGround <= STICK_TOUCH_RANGE && touchState.groundId === null) {
-            touchState.groundId = t.identifier;
-            touchState.groundXPos = t.clientX;
-            touchState.groundYPos = adjustedGroundY;
-            continue;
-          }
-
-          if (distScreen <= STICK_TOUCH_RANGE && touchState.screenId === null) {
-            touchState.screenId = t.identifier;
-            touchState.screenXPos = t.clientX;
-            touchState.screenYPos = adjustedScreenY;
-            continue;
-          }
-
-          if (distLook <= STICK_TOUCH_RANGE && touchState.lookId === null) {
-            touchState.lookId = t.identifier;
-            touchState.lookXPos = t.clientX;
-            touchState.lookYPos = adjustedLookY;
-            continue;
-          }
-        }
-      }, { passive: false });
-
-      canvas.addEventListener("touchmove", (e) => {
-        e.preventDefault();
-
-        const groundBase = getGroundStickBase();
-        const screenBase = getScreenStickBase();
-        const lookBase = getLookStickBase();
-
-        for (const t of e.changedTouches) {
-          if (t.identifier === touchState.groundId) {
-            const ay = t.clientY - GROUND_STICK_TOUCH_OFFSET_Y;
-            touchState.groundXPos = t.clientX;
-            touchState.groundYPos = ay;
-
-            const dx = t.clientX - groundBase.x;
-            const dy = ay - groundBase.y;
-            const dist = Math.hypot(dx, dy);
-
-            let mx = dx, my = dy;
-            if (dist > STICK_MAX_DIST && dist > 0) {
-              mx = dx * STICK_MAX_DIST / dist;
-              my = dy * STICK_MAX_DIST / dist;
-            }
-
-            touchState.groundX = clamp(mx / STICK_MAX_DIST, -1, 1);
-            touchState.groundY = clamp(my / STICK_MAX_DIST, -1, 1);
-          }
-
-          if (t.identifier === touchState.screenId) {
-            const ay = t.clientY - SCREEN_STICK_TOUCH_OFFSET_Y;
-            touchState.screenXPos = t.clientX;
-            touchState.screenYPos = ay;
-
-            const dx = t.clientX - screenBase.x;
-            const dy = ay - screenBase.y;
-            const dist = Math.hypot(dx, dy);
-
-            let mx = dx, my = dy;
-            if (dist > STICK_MAX_DIST && dist > 0) {
-              mx = dx * STICK_MAX_DIST / dist;
-              my = dy * STICK_MAX_DIST / dist;
-            }
-
-            touchState.screenX = clamp(mx / STICK_MAX_DIST, -1, 1);
-            touchState.screenY = clamp(my / STICK_MAX_DIST, -1, 1);
-          }
-
-          if (t.identifier === touchState.lookId) {
-            const ay = t.clientY - LOOK_STICK_TOUCH_OFFSET_Y;
-            touchState.lookXPos = t.clientX;
-            touchState.lookYPos = ay;
-
-            const dx = t.clientX - lookBase.x;
-            const dy = ay - lookBase.y;
-            const dist = Math.hypot(dx, dy);
-
-            let mx = dx, my = dy;
-            if (dist > STICK_MAX_DIST && dist > 0) {
-              mx = dx * STICK_MAX_DIST / dist;
-              my = dy * STICK_MAX_DIST / dist;
-            }
-
-            touchState.lookX = clamp(mx / STICK_MAX_DIST, -1, 1);
-            touchState.lookY = clamp(my / STICK_MAX_DIST, -1, 1);
-          }
-        }
-      }, { passive: false });
-
-      function endTouch(e) {
-        e.preventDefault();
-
-        editorState.activeGizmoAxis = null;
-
-        for (const t of e.changedTouches) {
-          if (t.identifier === touchState.groundId) {
-            touchState.groundId = null;
-            touchState.groundX = 0;
-            touchState.groundY = 0;
-          }
-
-          if (t.identifier === touchState.screenId) {
-            touchState.screenId = null;
-            touchState.screenX = 0;
-            touchState.screenY = 0;
-          }
-
-          if (t.identifier === touchState.lookId) {
-            touchState.lookId = null;
-            touchState.lookX = 0;
-            touchState.lookY = 0;
-          }
-        }
-
-        updateEditorStatus();
-      }
-
-      canvas.addEventListener("touchend", endTouch, { passive: false });
-      canvas.addEventListener("touchcancel", endTouch, { passive: false });
-    }
-
-    resetButton.addEventListener("click", resetCamera);
-    resetButton.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      resetCamera();
-    }, { passive: false });
 
     function updateCamera() {
       const { forward, right, up } = getCameraBasis();
@@ -1524,25 +1370,9 @@ ${coordText}`;
       const lookInputX = applyStickCurve(touchState.lookX, 0.10, 3.2);
       const lookInputY = applyStickCurve(touchState.lookY, 0.10, 3.2);
 
-      const interactiveNode = getInteractiveGizmoNode();
-      if (interactiveNode && editorState.activeGizmoAxis) {
-        let amount = 0;
-        if (editorState.activeGizmoAxis === "x") {
-          amount = screenInputX + (-lookInputY * 0.35);
-        } else if (editorState.activeGizmoAxis === "y") {
-          amount = -screenInputY;
-        } else if (editorState.activeGizmoAxis === "z") {
-          amount = -lookInputY + screenInputY * 0.25;
-        }
-        if (Math.abs(amount) > 0.0001) {
-          moveNodeAlongAxis(interactiveNode, editorState.activeGizmoAxis, amount);
-        }
-      }
-
       const flatForward = normalize(vec(forward.x, 0, forward.z));
       const flatRight = normalize(vec(right.x, 0, right.z));
 
-      // 下スティックは常にカメラ
       if (touchState.groundId !== null && !hasFigure()) {
         camera.position = add(camera.position, mul(flatRight, groundInputX * moveSpeed));
         camera.position = add(camera.position, mul(flatForward, -groundInputY * moveSpeed));
@@ -1580,7 +1410,6 @@ ${coordText}`;
         camera.pitch = Math.atan2(target.y - camera.position.y, horizontal);
       }
 
-      // 編集中でもカメラは生かす。 screen/look は gizmo にも使われるがカメラも許可
       if (touchState.screenId !== null && !hasFigure()) {
         camera.position = add(camera.position, mul(right, screenInputX * moveSpeed * 0.5));
         camera.position = add(camera.position, mul(up, -screenInputY * moveSpeed * 0.5));
@@ -1617,95 +1446,44 @@ ${coordText}`;
       if (camera.pitch < -limit) camera.pitch = -limit;
     }
 
-    function drawBackground() {
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    function drawEditorNodes() {
+      for (const node of editorNodes) {
+        const selected = selectedNodeIds.includes(node.id);
+        let color = getNodeColor(node);
+        const p = vec(node.x, node.y, node.z);
 
-    function drawDebugText() {
-      ctx.fillStyle = "white";
-      ctx.font = "11px sans-serif";
-      ctx.fillText(
-        `camera: (${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)})`,
-        8,
-        canvas.height - 30
-      );
-      ctx.fillText(
-        `yaw: ${camera.yaw.toFixed(2)}   pitch: ${camera.pitch.toFixed(2)}`,
-        8,
-        canvas.height - 15
-      );
-    }
+        if (node.isTemporary) color = node.type === "point" ? "#ffddaa" : "#ffcc66";
 
-    function drawStick(base, knobX, knobY, strokeColor, fillColor) {
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(base.x, base.y, STICK_BASE_RADIUS, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(base.x, base.y, 2, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.fillStyle = fillColor;
-      ctx.beginPath();
-      ctx.arc(knobX, knobY, STICK_KNOB_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    function getKnobPosition(base, xPos, yPos, activeId) {
-      let knobX = base.x;
-      let knobY = base.y;
-
-      if (activeId !== null) {
-        const dx = xPos - base.x;
-        const dy = yPos - base.y;
-        const dist = Math.hypot(dx, dy);
-
-        let mx = dx;
-        let my = dy;
-        if (dist > STICK_MAX_DIST && dist > 0) {
-          mx = dx * STICK_MAX_DIST / dist;
-          my = dy * STICK_MAX_DIST / dist;
+        if (selected) {
+          if (node.type === "point") drawSquare3D(p, "#ff4444", 14);
+          else drawPoint3D(p, "#ff4444", 7);
+        } else {
+          if (node.type === "point") drawSquare3D(p, color, 10);
+          else drawPoint3D(p, color, 5);
         }
-
-        knobX = base.x + mx;
-        knobY = base.y + my;
       }
-
-      return { knobX, knobY };
     }
 
-    function drawTouchUI() {
-      const groundBase = getGroundStickBase();
-      const screenBase = getScreenStickBase();
-      const lookBase = getLookStickBase();
+    function drawGizmo() {
+      let node = null;
+      if (editorState.placementMode) node = getPlacementNode();
+      else if (moveModeEnabled) node = getPrimarySelectedNode();
+      if (!node) return;
 
-      const g = getKnobPosition(groundBase, touchState.groundXPos, touchState.groundYPos, touchState.groundId);
-      const s = getKnobPosition(screenBase, touchState.screenXPos, touchState.screenYPos, touchState.screenId);
-      const l = getKnobPosition(lookBase, touchState.lookXPos, touchState.lookYPos, touchState.lookId);
+      const g = getGizmoInfo(node);
+      if (!g) return;
 
-      drawStick(
-        groundBase,
-        g.knobX, g.knobY,
-        "rgba(255,255,255,0.35)",
-        "rgba(255,255,255,0.25)"
-      );
+      const xColor = editorState.activeGizmoAxis === "x" ? "#ff8888" : "#ff3333";
+      const yColor = editorState.activeGizmoAxis === "y" ? "#88ff88" : "#33ff33";
+      const zColor = editorState.activeGizmoAxis === "z" ? "#8888ff" : "#3399ff";
 
-      drawStick(
-        screenBase,
-        s.knobX, s.knobY,
-        "rgba(180,255,180,0.40)",
-        "rgba(180,255,180,0.22)"
-      );
+      drawLine3D(g.origin, g.xEnd, xColor, 3);
+      drawLine3D(g.origin, g.yEnd, yColor, 3);
+      drawLine3D(g.origin, g.zEnd, zColor, 3);
 
-      drawStick(
-        lookBase,
-        l.knobX, l.knobY,
-        "rgba(100,180,255,0.45)",
-        "rgba(100,180,255,0.28)"
-      );
+      drawPoint3D(g.xEnd, xColor, 5);
+      drawPoint3D(g.yEnd, yColor, 5);
+      drawPoint3D(g.zEnd, zColor, 5);
     }
 
     function loop() {
@@ -1715,21 +1493,23 @@ ${coordText}`;
       drawAxes();
       drawMirrorPlane();
 
-      for (const fig of figures) {
-        drawStickFigure(fig);
-      }
+      for (const fig of figures) drawStickFigure(fig);
 
       drawEditorEdges();
       drawEditorNodes();
       drawGizmo();
-
       drawTouchUI();
       drawDebugText();
 
       requestAnimationFrame(loop);
     }
 
-    // 初期化
+    resetButton.addEventListener("click", resetCamera);
+    resetButton.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      resetCamera();
+    }, { passive: false });
+
     setupTouchControls();
     updatePanels();
     updateEditorStatus();
