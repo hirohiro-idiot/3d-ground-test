@@ -399,6 +399,37 @@
     }
 
     // =========================
+    // 床・座標軸
+    // =========================
+    function drawGroundGrid() {
+      const xMin = -20;
+      const xMax = 20;
+      const zMin = 1;
+      const zMax = 40;
+      const step = 1;
+
+      for (let x = xMin; x <= xMax; x += step) {
+        const a = vec(x, 0, zMin);
+        const b = vec(x, 0, zMax);
+        const isMain = (x === 0);
+        drawLine3D(a, b, isMain ? "#ffffff" : "#666666", isMain ? 2 : 1);
+      }
+
+      for (let z = zMin; z <= zMax; z += step) {
+        const a = vec(xMin, 0, z);
+        const b = vec(xMax, 0, z);
+        const isMain = (z % 5 === 0);
+        drawLine3D(a, b, isMain ? "#888888" : "#444444", isMain ? 1.5 : 1);
+      }
+    }
+
+    function drawAxes() {
+      drawLine3D(vec(0, 0, 0), vec(3, 0, 0), "red", 2);
+      drawLine3D(vec(0, 0, 0), vec(0, 3, 0), "lime", 2);
+      drawLine3D(vec(0, 0, 0), vec(0, 0, 3), "cyan", 2);
+    }
+
+    // =========================
     // 既存棒人間
     // =========================
     const figures = [];
@@ -690,7 +721,7 @@
     }
 
     // =========================
-    // 3D描画関数
+    // 描画関数
     // =========================
     function drawLine3D(a, b, color = "white", width = 1) {
       const pa = projectPoint(a);
@@ -792,6 +823,26 @@
           }
         }
       }
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function drawDebugText() {
+      ctx.fillStyle = "white";
+      ctx.font = "11px sans-serif";
+      ctx.fillText(
+        `camera: (${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)})`,
+        8,
+        canvas.height - 30
+      );
+      ctx.fillText(
+        `yaw: ${camera.yaw.toFixed(2)}   pitch: ${camera.pitch.toFixed(2)}`,
+        8,
+        canvas.height - 15
+      );
     }
 
     // =========================
@@ -1332,6 +1383,7 @@
 
       drawTouchUI();
       drawDebugText();
+
       requestAnimationFrame(loop);
     }
 
