@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Ground Triple Sticks + Figure + Gizmo Editor</title>
+  <title>3D Ground Triple Sticks + Gizmo Editor</title>
   <style>
     html, body {
       margin: 0;
@@ -81,10 +81,12 @@
       white-space: pre-line;
     }
 
-    #jointPanel, #editorPanel {
+    #editorPanel {
       position: absolute;
       top: 52px;
       right: 8px;
+      width: 206px;
+      max-width: 60vw;
       color: white;
       background: rgba(0, 0, 0, 0.58);
       border: 1px solid rgba(255,255,255,0.18);
@@ -95,39 +97,10 @@
       pointer-events: auto;
     }
 
-    #jointPanel {
-      width: 220px;
-      max-width: 64vw;
-    }
-
-    #editorPanel {
-      width: 206px;
-      max-width: 60vw;
-    }
-
-    #jointPanel h3, #editorPanel h3 {
+    #editorPanel h3 {
       margin: 0 0 8px 0;
       font-size: 13px;
       font-weight: 600;
-    }
-
-    .jointRow {
-      margin-bottom: 8px;
-    }
-
-    .jointRow label {
-      display: block;
-      font-size: 11px;
-      margin-bottom: 3px;
-    }
-
-    .jointRow .value {
-      float: right;
-      opacity: 0.85;
-    }
-
-    .jointRow input[type="range"] {
-      width: 100%;
     }
 
     #editorPanel .sectionTitle {
@@ -156,68 +129,30 @@
 
   <div id="topbar">
     <div id="leftMenu">
-      <button id="addFigureButton" class="uiButton">人形を追加</button>
-      <button id="deleteFigureButton" class="uiButton">人形削除</button>
-      <button id="toggleJointPanelButton" class="uiButton">可動バー: OFF</button>
       <button id="toggleInfoButton" class="uiButton">操作説明: OFF</button>
-      <button id="toggleEditorButton" class="uiButton">人形作成: OFF</button>
-      <button id="toggleEditorPanelButton" class="uiButton">編集パネル: OFF</button>
+      <button id="toggleEditorButton" class="uiButton">人形作成: ON</button>
+      <button id="toggleEditorPanelButton" class="uiButton">編集パネル: ON</button>
     </div>
 
     <button id="resetButton" class="uiButton">RESET</button>
   </div>
 
   <div id="info">
-PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし / Q E 上下 / R リセット
-スマホ:
-左下 下スティック = 人形なし: 地面平行移動 / 人形あり: 被写体中心の横回転・縦回転
-左下 上スティック = 画面基準の上下左右移動
-右スティック = 人形なし: 通常カメラ回転 / 人形あり: 近づく・離れる
+PC:
+↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし / Q E 上下 / R リセット
 
-人形作成モード:
+スマホ:
+左下 下スティック = 地面平行移動
+左下 上スティック = 画面基準の上下左右移動
+右スティック = 通常カメラ回転
+
+エディタ:
 点や関節を追加すると仮配置モードに入る
 決定で配置確定 / キャンセルで取消
-軸ギズモ先端をドラッグしてその軸方向に動かす
+軸ギズモは先端だけでなく線でも掴める
 平面拘束ONなら基本は中心平面 x=0 上
 平面離脱でX方向移動を許可
 対称モードONなら反対側にも自動生成
-  </div>
-
-  <div id="jointPanel">
-    <h3>関節操作</h3>
-
-    <div class="jointRow">
-      <label>左肩 <span id="val-shoulderL" class="value">0</span></label>
-      <input id="slider-shoulderL" type="range" min="-120" max="120" value="0" />
-    </div>
-    <div class="jointRow">
-      <label>左肘 <span id="val-elbowL" class="value">0</span></label>
-      <input id="slider-elbowL" type="range" min="-150" max="150" value="0" />
-    </div>
-    <div class="jointRow">
-      <label>右肩 <span id="val-shoulderR" class="value">0</span></label>
-      <input id="slider-shoulderR" type="range" min="-120" max="120" value="0" />
-    </div>
-    <div class="jointRow">
-      <label>右肘 <span id="val-elbowR" class="value">0</span></label>
-      <input id="slider-elbowR" type="range" min="-150" max="150" value="0" />
-    </div>
-    <div class="jointRow">
-      <label>左股関節 <span id="val-hipL" class="value">0</span></label>
-      <input id="slider-hipL" type="range" min="-120" max="120" value="0" />
-    </div>
-    <div class="jointRow">
-      <label>左膝 <span id="val-kneeL" class="value">0</span></label>
-      <input id="slider-kneeL" type="range" min="-150" max="150" value="0" />
-    </div>
-    <div class="jointRow">
-      <label>右股関節 <span id="val-hipR" class="value">0</span></label>
-      <input id="slider-hipR" type="range" min="-120" max="120" value="0" />
-    </div>
-    <div class="jointRow">
-      <label>右膝 <span id="val-kneeR" class="value">0</span></label>
-      <input id="slider-kneeR" type="range" min="-150" max="150" value="0" />
-    </div>
   </div>
 
   <div id="editorPanel">
@@ -254,14 +189,9 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     const ctx = canvas.getContext("2d");
 
     const resetButton = document.getElementById("resetButton");
-    const addFigureButton = document.getElementById("addFigureButton");
-    const deleteFigureButton = document.getElementById("deleteFigureButton");
-    const toggleJointPanelButton = document.getElementById("toggleJointPanelButton");
     const toggleInfoButton = document.getElementById("toggleInfoButton");
     const toggleEditorButton = document.getElementById("toggleEditorButton");
     const toggleEditorPanelButton = document.getElementById("toggleEditorPanelButton");
-
-    const jointPanel = document.getElementById("jointPanel");
     const infoPanel = document.getElementById("info");
     const editorPanel = document.getElementById("editorPanel");
 
@@ -309,7 +239,6 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
     }
     function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
     function sign(v) { return v > 0 ? 1 : v < 0 ? -1 : 0; }
-    function degToRad(deg) { return deg * Math.PI / 180; }
     function distance2D(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
 
     function applyStickCurve(v, deadzone = 0.08, exponent = 2.6) {
@@ -423,114 +352,11 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
       drawLine3D(vec(0, 0, 0), vec(0, 0, 3), "cyan", 2);
     }
 
-    const figures = [];
-    let selectedFigureId = null;
-    let nextFigureId = 1;
-    let jointPanelEnabled = false;
+    let editorEnabled = true;
+    let editorPanelEnabled = true;
     let infoEnabled = false;
-
-    function createFigure(x = 0, y = 0, z = 8) {
-      return {
-        id: nextFigureId++,
-        x, y, z,
-        joints: {
-          shoulderL: 0, elbowL: 0, shoulderR: 0, elbowR: 0,
-          hipL: 0, kneeL: 0, hipR: 0, kneeR: 0
-        }
-      };
-    }
-
-    function getSelectedFigure() {
-      return figures.find(f => f.id === selectedFigureId) || null;
-    }
-    function hasFigure() { return !!getSelectedFigure(); }
-    function getFigureTarget(fig) { return vec(fig.x, fig.y + 1.0, fig.z); }
-
-    const jointKeys = ["shoulderL", "elbowL", "shoulderR", "elbowR", "hipL", "kneeL", "hipR", "kneeR"];
-
-    function syncJointPanelFromFigure() {
-      const fig = getSelectedFigure();
-      if (!fig) return;
-      for (const key of jointKeys) {
-        const slider = document.getElementById(`slider-${key}`);
-        const value = document.getElementById(`val-${key}`);
-        slider.value = fig.joints[key];
-        value.textContent = fig.joints[key];
-      }
-    }
-
-    for (const key of jointKeys) {
-      const slider = document.getElementById(`slider-${key}`);
-      const value = document.getElementById(`val-${key}`);
-      slider.addEventListener("input", () => {
-        const fig = getSelectedFigure();
-        if (!fig) return;
-        fig.joints[key] = Number(slider.value);
-        value.textContent = slider.value;
-      });
-    }
-
-    function computeStickFigurePose(fig) {
-      const baseX = fig.x, baseY = fig.y, baseZ = fig.z;
-      const pelvis = vec(baseX, baseY + 0.80, baseZ);
-      const chest = vec(baseX, baseY + 1.20, baseZ);
-      const neck = vec(baseX, baseY + 1.50, baseZ);
-      const head = vec(baseX, baseY + 1.80, baseZ);
-
-      const shoulderL = vec(baseX - 0.28, baseY + 1.20, baseZ);
-      const shoulderR = vec(baseX + 0.28, baseY + 1.20, baseZ);
-      const hipL = vec(baseX - 0.18, baseY + 0.80, baseZ);
-      const hipR = vec(baseX + 0.18, baseY + 0.80, baseZ);
-
-      const upperArm = 0.40, lowerArm = 0.35, upperLeg = 0.45, lowerLeg = 0.40;
-
-      function limbEnd(base, len, angleDeg, side) {
-        const a = degToRad(angleDeg);
-        return vec(base.x + side * len * Math.sin(a), base.y - len * Math.cos(a), base.z);
-      }
-      function limbEndFrom(base, len, totalAngleDeg, side) {
-        const a = degToRad(totalAngleDeg);
-        return vec(base.x + side * len * Math.sin(a), base.y - len * Math.cos(a), base.z);
-      }
-
-      const elbowL = limbEnd(shoulderL, upperArm, fig.joints.shoulderL, -1);
-      const handL = limbEndFrom(elbowL, lowerArm, fig.joints.shoulderL + fig.joints.elbowL, -1);
-      const elbowR = limbEnd(shoulderR, upperArm, fig.joints.shoulderR, 1);
-      const handR = limbEndFrom(elbowR, lowerArm, fig.joints.shoulderR + fig.joints.elbowR, 1);
-      const kneeL = limbEnd(hipL, upperLeg, fig.joints.hipL, -1);
-      const footL = limbEndFrom(kneeL, lowerLeg, fig.joints.hipL + fig.joints.kneeL, -1);
-      const kneeR = limbEnd(hipR, upperLeg, fig.joints.hipR, 1);
-      const footR = limbEndFrom(kneeR, lowerLeg, fig.joints.hipR + fig.joints.kneeR, 1);
-
-      return { head, neck, chest, pelvis, shoulderL, shoulderR, elbowL, elbowR, handL, handR, hipL, hipR, kneeL, kneeR, footL, footR };
-    }
-
-    function drawStickFigure(fig) {
-      const p = computeStickFigurePose(fig);
-      drawLine3D(p.head, p.neck, "white", 2);
-      drawLine3D(p.neck, p.chest, "white", 2);
-      drawLine3D(p.chest, p.pelvis, "white", 2);
-      drawLine3D(p.chest, p.shoulderL, "white", 2);
-      drawLine3D(p.shoulderL, p.elbowL, "white", 2);
-      drawLine3D(p.elbowL, p.handL, "white", 2);
-      drawLine3D(p.chest, p.shoulderR, "white", 2);
-      drawLine3D(p.shoulderR, p.elbowR, "white", 2);
-      drawLine3D(p.elbowR, p.handR, "white", 2);
-      drawLine3D(p.pelvis, p.hipL, "white", 2);
-      drawLine3D(p.hipL, p.kneeL, "white", 2);
-      drawLine3D(p.kneeL, p.footL, "white", 2);
-      drawLine3D(p.pelvis, p.hipR, "white", 2);
-      drawLine3D(p.hipR, p.kneeR, "white", 2);
-      drawLine3D(p.kneeR, p.footR, "white", 2);
-      drawPoint3D(p.head, "#ffffff", 4);
-      drawPoint3D(p.neck, "#dddddd", 2.5);
-      drawPoint3D(p.chest, "#dddddd", 2.5);
-      drawPoint3D(p.pelvis, "#dddddd", 2.5);
-    }
-
-    let editorEnabled = false;
-    let editorPanelEnabled = false;
     let moveModeEnabled = false;
+
     let nextNodeId = 1;
     let nextEdgeId = 1;
 
@@ -581,10 +407,6 @@ PC: ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし
         x: p.x,
         y: p.y,
         z: p.z,
-        rx: 0,
-        ry: 0,
-        rz: 0,
-        name: `${type}_${nextNodeId - 1}`,
         isTemporary: true,
         mirrorPairId: null,
         mirrored
@@ -752,11 +574,9 @@ ${coordText}`;
 
     function updatePanels() {
       infoPanel.style.display = infoEnabled ? "block" : "none";
-      jointPanel.style.display = (hasFigure() && jointPanelEnabled) ? "block" : "none";
       editorPanel.style.display = (editorEnabled && editorPanelEnabled) ? "block" : "none";
 
       toggleInfoButton.textContent = `操作説明: ${infoEnabled ? "ON" : "OFF"}`;
-      toggleJointPanelButton.textContent = `可動バー: ${jointPanelEnabled ? "ON" : "OFF"}`;
       toggleEditorButton.textContent = `人形作成: ${editorEnabled ? "ON" : "OFF"}`;
       toggleEditorPanelButton.textContent = `編集パネル: ${editorPanelEnabled ? "ON" : "OFF"}`;
       toggleMoveModeButton.textContent = `移動モード: ${moveModeEnabled ? "ON" : "OFF"}`;
@@ -767,6 +587,33 @@ ${coordText}`;
       confirmPlacementButton.disabled = !editorState.placementMode;
       cancelPlacementButton.disabled = !editorState.placementMode;
       releasePlaneButton.disabled = !editorState.planeConstraint;
+    }
+
+    function getGizmoInfo(node) {
+      if (!node) return null;
+      const origin = vec(node.x, node.y, node.z);
+      return {
+        origin,
+        xEnd: vec(node.x + 0.8, node.y, node.z),
+        yEnd: vec(node.x, node.y + 0.8, node.z),
+        zEnd: vec(node.x, node.y, node.z + 0.8)
+      };
+    }
+
+    function pointToSegmentDistance(px, py, ax, ay, bx, by) {
+      const abx = bx - ax;
+      const aby = by - ay;
+      const apx = px - ax;
+      const apy = py - ay;
+      const abLen2 = abx * abx + aby * aby;
+      if (abLen2 < 0.0001) return Math.hypot(px - ax, py - ay);
+
+      let t = (apx * abx + apy * aby) / abLen2;
+      t = Math.max(0, Math.min(1, t));
+
+      const cx = ax + abx * t;
+      const cy = ay + aby * t;
+      return Math.hypot(px - cx, py - cy);
     }
 
     function pickNodeAtScreen(x, y) {
@@ -784,36 +631,54 @@ ${coordText}`;
       return bestId;
     }
 
-    function getGizmoInfo(node) {
-      if (!node) return null;
-      const origin = vec(node.x, node.y, node.z);
-      return {
-        origin,
-        xEnd: vec(node.x + 0.8, node.y, node.z),
-        yEnd: vec(node.x, node.y + 0.8, node.z),
-        zEnd: vec(node.x, node.y, node.z + 0.8)
-      };
-    }
-
     function pickGizmoAxisAtScreen(x, y, node) {
       const gizmo = getGizmoInfo(node);
       if (!gizmo) return null;
 
-      const entries = [
-        ["x", projectPoint(gizmo.xEnd)],
-        ["y", projectPoint(gizmo.yEnd)],
-        ["z", projectPoint(gizmo.zEnd)]
-      ];
+      const originP = projectPoint(gizmo.origin);
+      const xP = projectPoint(gizmo.xEnd);
+      const yP = projectPoint(gizmo.yEnd);
+      const zP = projectPoint(gizmo.zEnd);
+      if (!originP.visible) return null;
+
+      const candidates = [];
+
+      if (xP.visible) {
+        candidates.push({
+          axis: "x",
+          dist: Math.min(
+            distance2D(xP.x, xP.y, x, y),
+            pointToSegmentDistance(x, y, originP.x, originP.y, xP.x, xP.y)
+          )
+        });
+      }
+
+      if (yP.visible) {
+        candidates.push({
+          axis: "y",
+          dist: Math.min(
+            distance2D(yP.x, yP.y, x, y),
+            pointToSegmentDistance(x, y, originP.x, originP.y, yP.x, yP.y)
+          )
+        });
+      }
+
+      if (zP.visible) {
+        candidates.push({
+          axis: "z",
+          dist: Math.min(
+            distance2D(zP.x, zP.y, x, y),
+            pointToSegmentDistance(x, y, originP.x, originP.y, zP.x, zP.y)
+          )
+        });
+      }
 
       let best = null;
       let bestDist = Infinity;
-
-      for (const [axis, p] of entries) {
-        if (!p.visible) continue;
-        const d = distance2D(p.x, p.y, x, y);
-        if (d < 26 && d < bestDist) {
-          bestDist = d;
-          best = axis;
+      for (const c of candidates) {
+        if (c.dist < 18 && c.dist < bestDist) {
+          bestDist = c.dist;
+          best = c.axis;
         }
       }
       return best;
@@ -927,13 +792,13 @@ ${coordText}`;
       const yColor = editorState.activeGizmoAxis === "y" ? "#88ff88" : "#33ff33";
       const zColor = editorState.activeGizmoAxis === "z" ? "#8888ff" : "#3399ff";
 
-      drawLine3D(g.origin, g.xEnd, xColor, 3);
-      drawLine3D(g.origin, g.yEnd, yColor, 3);
-      drawLine3D(g.origin, g.zEnd, zColor, 3);
+      drawLine3D(g.origin, g.xEnd, xColor, 4);
+      drawLine3D(g.origin, g.yEnd, yColor, 4);
+      drawLine3D(g.origin, g.zEnd, zColor, 4);
 
-      drawPoint3D(g.xEnd, xColor, 5);
-      drawPoint3D(g.yEnd, yColor, 5);
-      drawPoint3D(g.zEnd, zColor, 5);
+      drawPoint3D(g.xEnd, xColor, 6);
+      drawPoint3D(g.yEnd, yColor, 6);
+      drawPoint3D(g.zEnd, zColor, 6);
     }
 
     function drawBackground() {
@@ -1211,32 +1076,6 @@ ${coordText}`;
       updatePanels();
     });
 
-    addFigureButton.addEventListener("click", () => {
-      const figure = createFigure(0, 0, 8);
-      figures.push(figure);
-      selectedFigureId = figure.id;
-      jointPanelEnabled = true;
-      updatePanels();
-      syncJointPanelFromFigure();
-    });
-
-    deleteFigureButton.addEventListener("click", () => {
-      const fig = getSelectedFigure();
-      if (!fig) return;
-      const index = figures.findIndex(f => f.id === fig.id);
-      if (index >= 0) figures.splice(index, 1);
-      selectedFigureId = figures.length ? figures[figures.length - 1].id : null;
-      if (!selectedFigureId) jointPanelEnabled = false;
-      updatePanels();
-      syncJointPanelFromFigure();
-    });
-
-    toggleJointPanelButton.addEventListener("click", () => {
-      jointPanelEnabled = !jointPanelEnabled;
-      updatePanels();
-      if (jointPanelEnabled) syncJointPanelFromFigure();
-    });
-
     toggleEditorButton.addEventListener("click", () => {
       editorEnabled = !editorEnabled;
       if (!editorEnabled) {
@@ -1397,95 +1236,25 @@ ${coordText}`;
       const flatForward = normalize(vec(forward.x, 0, forward.z));
       const flatRight = normalize(vec(right.x, 0, right.z));
 
-      if (touchState.groundId !== null && !hasFigure()) {
+      if (touchState.groundId !== null) {
         camera.position = add(camera.position, mul(flatRight, groundInputX * moveSpeed));
         camera.position = add(camera.position, mul(flatForward, -groundInputY * moveSpeed));
       }
 
-      if (touchState.groundId !== null && hasFigure()) {
-        const fig = getSelectedFigure();
-        const target = getFigureTarget(fig);
-
-        const dx = camera.position.x - target.x;
-        const dy = camera.position.y - target.y;
-        const dz = camera.position.z - target.z;
-
-        let radius = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        radius = Math.max(radius, 0.001);
-
-        let yaw = Math.atan2(dx, dz);
-        let pitch = Math.asin(clamp(dy / radius, -1, 1));
-
-        yaw += groundInputX * 0.04;
-        pitch += groundInputY * 0.03;
-
-        const pitchLimit = Math.PI / 2 - 0.08;
-        pitch = clamp(pitch, -pitchLimit, pitchLimit);
-
-        camera.position.x = target.x + radius * Math.sin(yaw) * Math.cos(pitch);
-        camera.position.z = target.z + radius * Math.cos(yaw) * Math.cos(pitch);
-        camera.position.y = target.y + radius * Math.sin(pitch);
-
-        camera.yaw = Math.atan2(target.x - camera.position.x, target.z - camera.position.z);
-        const horizontal = Math.sqrt(
-          (target.x - camera.position.x) * (target.x - camera.position.x) +
-          (target.z - camera.position.z) * (target.z - camera.position.z)
-        );
-        camera.pitch = Math.atan2(target.y - camera.position.y, horizontal);
-      }
-
-      if (touchState.screenId !== null && !hasFigure()) {
+      if (touchState.screenId !== null) {
         camera.position = add(camera.position, mul(right, screenInputX * moveSpeed * 0.5));
         camera.position = add(camera.position, mul(up, -screenInputY * moveSpeed * 0.5));
       }
 
       if (touchState.lookId !== null) {
-        if (hasFigure()) {
-          const fig = getSelectedFigure();
-          const target = getFigureTarget(fig);
-
-          const offset = sub(camera.position, target);
-          let dist = length(offset);
-          dist += lookInputY * 0.35;
-          dist = clamp(dist, 2.0, 25.0);
-
-          const dir = normalize(offset);
-          camera.position = add(target, mul(dir, dist));
-
-          camera.yaw = Math.atan2(target.x - camera.position.x, target.z - camera.position.z);
-          const horizontal = Math.sqrt(
-            (target.x - camera.position.x) * (target.x - camera.position.x) +
-            (target.z - camera.position.z) * (target.z - camera.position.z)
-          );
-          camera.pitch = Math.atan2(target.y - camera.position.y, horizontal);
-        } else {
-          const stickLookSpeed = 0.01;
-          camera.yaw -= lookInputX * stickLookSpeed;
-          camera.pitch -= lookInputY * stickLookSpeed;
-        }
+        const stickLookSpeed = 0.01;
+        camera.yaw -= lookInputX * stickLookSpeed;
+        camera.pitch -= lookInputY * stickLookSpeed;
       }
 
       const limit = Math.PI / 2 - 0.05;
       if (camera.pitch > limit) camera.pitch = limit;
       if (camera.pitch < -limit) camera.pitch = -limit;
-    }
-
-    function drawEditorNodes() {
-      for (const node of editorNodes) {
-        const selected = selectedNodeIds.includes(node.id);
-        let color = getNodeColor(node);
-        const p = vec(node.x, node.y, node.z);
-
-        if (node.isTemporary) color = node.type === "point" ? "#ffddaa" : "#ffcc66";
-
-        if (selected) {
-          if (node.type === "point") drawSquare3D(p, "#ff4444", 14);
-          else drawPoint3D(p, "#ff4444", 7);
-        } else {
-          if (node.type === "point") drawSquare3D(p, color, 10);
-          else drawPoint3D(p, color, 5);
-        }
-      }
     }
 
     function drawGizmo() {
@@ -1501,13 +1270,13 @@ ${coordText}`;
       const yColor = editorState.activeGizmoAxis === "y" ? "#88ff88" : "#33ff33";
       const zColor = editorState.activeGizmoAxis === "z" ? "#8888ff" : "#3399ff";
 
-      drawLine3D(g.origin, g.xEnd, xColor, 3);
-      drawLine3D(g.origin, g.yEnd, yColor, 3);
-      drawLine3D(g.origin, g.zEnd, zColor, 3);
+      drawLine3D(g.origin, g.xEnd, xColor, 4);
+      drawLine3D(g.origin, g.yEnd, yColor, 4);
+      drawLine3D(g.origin, g.zEnd, zColor, 4);
 
-      drawPoint3D(g.xEnd, xColor, 5);
-      drawPoint3D(g.yEnd, yColor, 5);
-      drawPoint3D(g.zEnd, zColor, 5);
+      drawPoint3D(g.xEnd, xColor, 6);
+      drawPoint3D(g.yEnd, yColor, 6);
+      drawPoint3D(g.zEnd, zColor, 6);
     }
 
     function loop() {
@@ -1516,15 +1285,11 @@ ${coordText}`;
       drawGroundGrid();
       drawAxes();
       drawMirrorPlane();
-
-      for (const fig of figures) drawStickFigure(fig);
-
       drawEditorEdges();
       drawEditorNodes();
       drawGizmo();
       drawTouchUI();
       drawDebugText();
-
       requestAnimationFrame(loop);
     }
 
