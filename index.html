@@ -6,10 +6,13 @@
   <title>3D Ground Triple Sticks + Gizmo Editor</title>
 
   <style>
-    /* [1] 画面全体の土台
-       [1-1] body/htmlを全画面化
-       [1-2] スクロール禁止
-       [1-3] タッチ操作をブラウザ既定挙動から切り離す */
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-1] 画面全体の基本設定
+       [1-1-1] html, body 全画面化
+       [1-1-2] スクロール禁止
+       [1-1-3] ブラウザ既定タッチ動作を抑制
+       ========================================================= */
     html, body {
       margin: 0;
       padding: 0;
@@ -21,7 +24,11 @@
       font-family: sans-serif;
     }
 
-    /* [1-4] 描画キャンバス本体 */
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-2] メイン描画領域
+       [1-2-1] canvas 全画面表示
+       ========================================================= */
     canvas {
       display: block;
       width: 100vw;
@@ -30,7 +37,12 @@
       touch-action: none;
     }
 
-    /* [1-5] 上部UIバー */
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-3] 上部UI
+       [1-3-1] topbar
+       [1-3-2] leftMenu
+       ========================================================= */
     #topbar {
       position: absolute;
       top: 6px;
@@ -43,7 +55,6 @@
       pointer-events: none;
     }
 
-    /* [1-6] 左メニュー列 */
     #leftMenu {
       display: flex;
       flex-direction: column;
@@ -51,7 +62,13 @@
       pointer-events: none;
     }
 
-    /* [1-7] 共通ボタン */
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-4] 共通UI部品
+       [1-4-1] ボタン
+       [1-4-2] 入力欄
+       [1-4-3] セレクト
+       ========================================================= */
     .uiButton {
       pointer-events: auto;
       border: 1px solid rgba(255,255,255,0.35);
@@ -73,7 +90,6 @@
       opacity: 0.45;
     }
 
-    /* [1-8] 共通入力UI */
     .uiTextInput, .uiSelect {
       pointer-events: auto;
       border: 1px solid rgba(255,255,255,0.35);
@@ -95,7 +111,11 @@
       color: black;
     }
 
-    /* [1-9] 操作説明パネル */
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-5] 情報パネル
+       [1-5-1] 操作説明
+       ========================================================= */
     #info {
       position: absolute;
       top: 52px;
@@ -113,7 +133,13 @@
       white-space: pre-line;
     }
 
-    /* [1-10] エディタパネル */
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-6] エディタパネル
+       [1-6-1] 右側パネル本体
+       [1-6-2] 見出し
+       [1-6-3] ステータス欄
+       ========================================================= */
     #editorPanel {
       position: absolute;
       top: 52px;
@@ -138,14 +164,12 @@
       font-weight: 600;
     }
 
-    /* [1-11] ボタン縦並び */
     .buttonCol {
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
 
-    /* [1-12] 横並び行 */
     .inlineRow {
       display: flex;
       gap: 6px;
@@ -155,7 +179,6 @@
       flex: 1;
     }
 
-    /* [1-13] ステータス表示欄 */
     #editorStatus {
       margin-top: 10px;
       font-size: 11px;
@@ -164,7 +187,10 @@
       white-space: pre-line;
     }
 
-    /* [1-14] 座標一覧パネル */
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-7] 座標一覧パネル
+       ========================================================= */
     #coordPanel {
       position: absolute;
       left: 8px;
@@ -195,12 +221,16 @@
       margin: 0;
     }
 
-    /* [1-15] 非表示ファイル入力 */
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-8] 補助UI
+       [1-8-1] 非表示ファイル入力
+       [1-8-2] 折りたたみセクション
+       ========================================================= */
     .hiddenFileInput {
       display: none;
     }
 
-    /* [1-16] 折りたたみセクション */
     .collapsibleSection {
       margin-top: 10px;
       border: 1px solid rgba(255,255,255,0.12);
@@ -237,10 +267,18 @@
   </style>
 </head>
 <body>
-  <!-- [2] メイン描画面 -->
+  <!-- =========================================================
+       [1] UI / レイアウト
+       [1-9] HTML配置
+       [1-9-1] メインcanvas
+       ========================================================= -->
   <canvas id="canvas"></canvas>
 
-  <!-- [3] 上部操作バー -->
+  <!-- =========================================================
+       [1] UI / レイアウト
+       [1-9] HTML配置
+       [1-9-2] 上部操作バー
+       ========================================================= -->
   <div id="topbar">
     <div id="leftMenu">
       <button id="toggleInfoButton" class="uiButton">操作説明: OFF</button>
@@ -251,7 +289,11 @@
     <button id="resetButton" class="uiButton">RESET</button>
   </div>
 
-  <!-- [4] 操作説明 -->
+  <!-- =========================================================
+       [1] UI / レイアウト
+       [1-9] HTML配置
+       [1-9-3] 操作説明パネル
+       ========================================================= -->
   <div id="info">
 PC:
 ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし / Q E 上下 / R リセット
@@ -284,11 +326,15 @@ OFF = 補正なし
 ※ 点の移動ギズモにも同じ補正がかかる
   </div>
 
-  <!-- [5] エディタパネル -->
+  <!-- =========================================================
+       [1] UI / レイアウト
+       [1-9] HTML配置
+       [1-9-4] エディタパネル
+       ========================================================= -->
   <div id="editorPanel">
     <h3>人形作成</h3>
 
-    <!-- [5-1] 保存/読込 -->
+    <!-- [1-9-4-1] 保存 / 読み込み -->
     <div class="collapsibleSection">
       <button id="toggleSaveLoadSectionButton" class="sectionToggleButton">▼ 保存 / 読み込み</button>
       <div id="saveLoadSectionContent" class="sectionContent">
@@ -302,7 +348,7 @@ OFF = 補正なし
       </div>
     </div>
 
-    <!-- [5-2] ノード追加 -->
+    <!-- [1-9-4-2] ノード追加 -->
     <div class="collapsibleSection">
       <button id="toggleNodeSectionButton" class="sectionToggleButton">▼ ノード追加</button>
       <div id="nodeSectionContent" class="sectionContent">
@@ -315,7 +361,7 @@ OFF = 補正なし
       </div>
     </div>
 
-    <!-- [5-3] 編集 -->
+    <!-- [1-9-4-3] 編集 -->
     <div class="collapsibleSection">
       <button id="toggleEditSectionButton" class="sectionToggleButton">▼ 編集</button>
       <div id="editSectionContent" class="sectionContent">
@@ -335,7 +381,7 @@ OFF = 補正なし
       </div>
     </div>
 
-    <!-- [5-4] 原点/座標 -->
+    <!-- [1-9-4-4] 原点 / 座標 -->
     <div class="collapsibleSection">
       <button id="toggleOriginSectionButton" class="sectionToggleButton">▶ 原点 / 座標</button>
       <div id="originSectionContent" class="sectionContent collapsed">
@@ -348,7 +394,7 @@ OFF = 補正なし
       </div>
     </div>
 
-    <!-- [5-5] 参考画像 -->
+    <!-- [1-9-4-5] 参考画像 -->
     <div class="collapsibleSection">
       <button id="toggleImageSectionButton" class="sectionToggleButton">▶ 参考画像</button>
       <div id="imageSectionContent" class="sectionContent collapsed">
@@ -373,28 +419,39 @@ OFF = 補正なし
       </div>
     </div>
 
-    <!-- [5-6] 状態表示 -->
+    <!-- [1-9-4-6] 状態表示 -->
     <div id="editorStatus"></div>
   </div>
 
-  <!-- [6] 座標一覧 -->
+  <!-- =========================================================
+       [1] UI / レイアウト
+       [1-9] HTML配置
+       [1-9-5] 座標一覧
+       ========================================================= -->
   <div id="coordPanel">
     <div id="coordPanelTitle">原点基準の座標一覧</div>
     <pre id="coordText"></pre>
   </div>
 
-  <!-- [7] 参考画像読込用 input -->
+  <!-- =========================================================
+       [1] UI / レイアウト
+       [1-9] HTML配置
+       [1-9-6] 参考画像入力
+       ========================================================= -->
   <input id="frontImageInput" class="hiddenFileInput" type="file" accept="image/*" />
   <input id="sideImageInput" class="hiddenFileInput" type="file" accept="image/*" />
   <input id="topImageInput" class="hiddenFileInput" type="file" accept="image/*" />
 
   <script>
     /* =========================================================
-       [8] DOM参照の取得
-       [8-1] canvas
-       [8-2] ボタン
-       [8-3] パネル
-       [8-4] 各セクション
+       [1] UI / レイアウト
+       [1-10] DOM参照の取得
+       [1-10-1] canvas / context
+       [1-10-2] 上部ボタン
+       [1-10-3] セクション
+       [1-10-4] エディタ操作群
+       [1-10-5] 原点 / 座標
+       [1-10-6] 参考画像
        ========================================================= */
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
@@ -461,8 +518,9 @@ OFF = 補正なし
     const topImageInput = document.getElementById("topImageInput");
 
     /* =========================================================
-       [9] キャンバスリサイズ
-       [9-1] 画面サイズに合わせて描画解像度を更新
+       [1] UI / レイアウト
+       [1-11] キャンバスリサイズ
+       [1-11-1] 画面サイズをキャンバス解像度へ反映
        ========================================================= */
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -472,13 +530,14 @@ OFF = 補正なし
     window.addEventListener("resize", resizeCanvas);
 
     /* =========================================================
-       [10] 3Dベクトル計算の土台
-       [10-1] ベクトル生成
-       [10-2] 加減算
-       [10-3] スカラー倍
-       [10-4] 内積・外積
-       [10-5] 正規化
-       [10-6] 補助関数
+       [2] 3Dエンジン基礎
+       [2-1] ベクトル演算
+       [2-1-1] ベクトル生成
+       [2-1-2] 加減算
+       [2-1-3] スカラー倍
+       [2-1-4] 内積 / 外積
+       [2-1-5] 長さ / 正規化
+       [2-1-6] 補助
        ========================================================= */
     function vec(x, y, z) { return { x, y, z }; }
     function add(a, b) { return vec(a.x + b.x, a.y + b.y, a.z + b.z); }
@@ -517,9 +576,10 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [11] スティック入力の感度カーブ
-       [11-1] デッドゾーン除去
-       [11-2] 指の微小ブレを抑えて滑らかにする
+       [2] 3Dエンジン基礎
+       [2-2] スティック入力の感度補正
+       [2-2-1] デッドゾーン除去
+       [2-2-2] カーブ適用
        ========================================================= */
     function applyStickCurve(v, deadzone = 0.08, exponent = 2.6) {
       const a = Math.abs(v);
@@ -530,10 +590,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [12] カメラ状態
-       [12-1] 初期位置
-       [12-2] 現在位置
-       [12-3] ワールド上方向
+       [2] 3Dエンジン基礎
+       [2-3] カメラ状態
+       [2-3-1] 初期位置
+       [2-3-2] 現在位置
+       [2-3-3] ワールド上方向
        ========================================================= */
     const INITIAL_CAMERA = {
       position: vec(0, 2, -8),
@@ -549,7 +610,11 @@ OFF = 補正なし
 
     const worldUp = vec(0, 1, 0);
 
-    /* [12-4] カメラのリセット */
+    /* =========================================================
+       [2] 3Dエンジン基礎
+       [2-3] カメラ状態
+       [2-3-4] カメラ初期化
+       ========================================================= */
     function resetCamera() {
       camera.position = vec(INITIAL_CAMERA.position.x, INITIAL_CAMERA.position.y, INITIAL_CAMERA.position.z);
       camera.yaw = INITIAL_CAMERA.yaw;
@@ -564,11 +629,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [13] カメラ基底ベクトル計算
-       [13-1] yaw/pitchからforward算出
-       [13-2] forward × up で right
-       [13-3] right × forward で up
-       ここが3D表示の核心のひとつ
+       [2] 3Dエンジン基礎
+       [2-4] カメラ基底ベクトル
+       [2-4-1] forward
+       [2-4-2] right
+       [2-4-3] up
        ========================================================= */
     function getCameraBasis() {
       const cp = Math.cos(camera.pitch);
@@ -585,11 +650,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [14] 3D→2D投影
-       [14-1] カメラから見た相対位置 v を取る
-       [14-2] right/up/forward 方向成分に分解
-       [14-3] 透視投影でスクリーン座標へ
-       ここが3D描画の最重要部
+       [2] 3Dエンジン基礎
+       [2-5] 3D→2D投影
+       [2-5-1] カメラ相対座標化
+       [2-5-2] right / up / forward 方向成分へ分解
+       [2-5-3] 透視投影
        ========================================================= */
     function projectPoint(p) {
       const { forward, right, up } = getCameraBasis();
@@ -611,10 +676,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [15] 3D描画の基本プリミティブ
-       [15-1] 線
-       [15-2] 点
-       [15-3] 四角点
+       [2] 3Dエンジン基礎
+       [2-6] 基本描画プリミティブ
+       [2-6-1] 3D線
+       [2-6-2] 3D点
+       [2-6-3] 3D四角点
        ========================================================= */
     function drawLine3D(a, b, color = "white", width = 1) {
       const pa = projectPoint(a);
@@ -647,9 +713,10 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [16] ワールド背景描画
-       [16-1] 地面グリッド
-       [16-2] XYZ軸
+       [7] 描画 / 実行
+       [7-1] ワールド背景描画
+       [7-1-1] 地面グリッド
+       [7-1-2] XYZ軸
        ========================================================= */
     function drawGroundGrid() {
       const xMin = -20, xMax = 20, zMin = 1, zMax = 40, step = 1;
@@ -670,7 +737,10 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [17] UI状態フラグ
+       [3] エディタ本体
+       [3-1] UI状態フラグ
+       [3-1-1] 表示ON/OFF
+       [3-1-2] 編集モード
        ========================================================= */
     let editorEnabled = true;
     let editorPanelEnabled = true;
@@ -680,7 +750,6 @@ OFF = 補正なし
     let coordPanelEnabled = false;
     let referenceEditMode = false;
 
-    /* [17-1] 折りたたみ状態 */
     const sectionState = {
       saveLoad: true,
       node: true,
@@ -690,12 +759,13 @@ OFF = 補正なし
     };
 
     /* =========================================================
-       [18] エディタ本体データ
-       [18-1] ノードID/エッジIDの採番
-       [18-2] ノード配列
-       [18-3] 接続配列
-       [18-4] 面配列（将来拡張）
-       [18-5] 選択中ノード
+       [3] エディタ本体
+       [3-2] モデルデータ
+       [3-2-1] 採番
+       [3-2-2] ノード
+       [3-2-3] エッジ
+       [3-2-4] 面
+       [3-2-5] 選択
        ========================================================= */
     let nextNodeId = 1;
     let nextEdgeId = 1;
@@ -706,11 +776,12 @@ OFF = 補正なし
     const selectedNodeIds = [];
 
     /* =========================================================
-       [19] エディタ動作状態
-       [19-1] 仮配置モード
-       [19-2] 対称モード
-       [19-3] 平面拘束
-       [19-4] ギズモ操作状態
+       [3] エディタ本体
+       [3-3] エディタ状態
+       [3-3-1] 仮配置
+       [3-3-2] 対称
+       [3-3-3] 平面拘束
+       [3-3-4] ギズモ操作
        ========================================================= */
     const editorState = {
       placementMode: false,
@@ -726,7 +797,11 @@ OFF = 補正なし
       gizmoLastY: 0
     };
 
-    /* [19-5] 座標一覧用の原点 */
+    /* =========================================================
+       [3] エディタ本体
+       [3-4] 原点管理
+       [3-4-1] 座標一覧の基準原点
+       ========================================================= */
     const referenceOrigin = {
       x: 0,
       y: 1.5,
@@ -734,9 +809,11 @@ OFF = 補正なし
     };
 
     /* =========================================================
-       [20] 参考画像状態管理
-       [20-1] front/side/top 画像それぞれの状態
-       [20-2] タッチ操作中の状態
+       [4] 参考画像
+       [4-1] 状態管理
+       [4-1-1] 単体画像状態生成
+       [4-1-2] front / side / top 状態
+       [4-1-3] タッチ操作状態
        ========================================================= */
     function createReferenceImageState(plane) {
       return {
@@ -772,11 +849,11 @@ OFF = 補正なし
     };
 
     /* =========================================================
-       [21] 保存機能
-       [21-1] localStorageキー
-       [21-2] 保存データの読込
-       [21-3] 保存データの書込
-       [21-4] 参考画像の直列化
+       [6] 保存 / 復元
+       [6-1] localStorage
+       [6-1-1] 保存キー
+       [6-1-2] 保存マップ取得
+       [6-1-3] 保存マップ更新
        ========================================================= */
     const MODEL_STORAGE_KEY = "gizmo_editor_saved_models_v2";
 
@@ -796,6 +873,14 @@ OFF = 補正なし
       localStorage.setItem(MODEL_STORAGE_KEY, JSON.stringify(map));
     }
 
+    /* =========================================================
+       [6] 保存 / 復元
+       [6-2] スナップショット化
+       [6-2-1] 参考画像の直列化
+       [6-2-2] DataURLから画像復元
+       [6-2-3] 現在状態をスナップショット化
+       [6-2-4] スナップショット適用
+       ========================================================= */
     function serializeReferenceImages() {
       return {
         front: {
@@ -834,7 +919,6 @@ OFF = 補正なし
       };
     }
 
-    /* [21-5] DataURLから画像復元 */
     function loadReferenceImageFromDataUrl(plane, dataUrl, name = "") {
       return new Promise((resolve) => {
         const state = referenceImages[plane];
@@ -867,7 +951,6 @@ OFF = 補正なし
       });
     }
 
-    /* [21-6] 現在モデルを保存用スナップショット化 */
     function createModelSnapshot() {
       return {
         savedAt: new Date().toISOString(),
@@ -887,7 +970,6 @@ OFF = 補正なし
       };
     }
 
-    /* [21-7] スナップショットを現在状態へ反映 */
     async function applyModelSnapshot(snapshot) {
       editorNodes.length = 0;
       editorEdges.length = 0;
@@ -962,7 +1044,14 @@ OFF = 補正なし
       updateEditorStatus();
     }
 
-    /* [21-8] 保存済みモデル一覧UI更新 */
+    /* =========================================================
+       [6] 保存 / 復元
+       [6-3] 保存モデル一覧UI
+       [6-3-1] select更新
+       [6-3-2] 保存
+       [6-3-3] 読み込み
+       [6-3-4] 削除
+       ========================================================= */
     function refreshSavedModelsSelect(selectedName = "") {
       const map = getSavedModelsMap();
       const names = Object.keys(map).sort((a, b) => a.localeCompare(b, "ja"));
@@ -992,7 +1081,6 @@ OFF = 補正なし
       }
     }
 
-    /* [21-9] モデル保存 */
     function saveCurrentModel() {
       const name = modelNameInput.value.trim();
       if (!name) {
@@ -1008,7 +1096,6 @@ OFF = 補正なし
       alert(`「${name}」を保存しました`);
     }
 
-    /* [21-10] モデル読込 */
     async function loadSelectedModel() {
       const name = savedModelsSelect.value;
       if (!name) {
@@ -1030,7 +1117,6 @@ OFF = 補正なし
       alert(`「${name}」を読み込みました`);
     }
 
-    /* [21-11] モデル削除 */
     function deleteSelectedModel() {
       const name = savedModelsSelect.value;
       if (!name) {
@@ -1054,10 +1140,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [22] エディタデータ基本操作
-       [22-1] ノード検索
-       [22-2] エッジ重複確認
-       [22-3] ノード削除時の関連エッジ削除
+       [3] エディタ本体
+       [3-5] 基本データ操作
+       [3-5-1] ノード検索
+       [3-5-2] エッジ重複確認
+       [3-5-3] ノード削除時の関連エッジ除去
        ========================================================= */
     function getNodeById(id) {
       return editorNodes.find(n => n.id === id) || null;
@@ -1074,11 +1161,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [23] ノード追加
-       [23-1] カメラ前方にスポーン
-       [23-2] ノードデータ生成
-       [23-3] 対称モードならミラー側も生成
-       [23-4] 仮配置モードへ移行
+       [3] エディタ本体
+       [3-6] ノード追加
+       [3-6-1] スポーン位置
+       [3-6-2] ノードデータ生成
+       [3-6-3] 追加本体
        ========================================================= */
     function getSpawnPosition(onMirrorPlane = false) {
       const { forward } = getCameraBasis();
@@ -1131,10 +1218,12 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [24] 選択管理
-       [24-1] 全解除
-       [24-2] 選択トグル
-       [24-3] 主選択ノード取得
+       [3] エディタ本体
+       [3-7] 選択管理
+       [3-7-1] 選択解除
+       [3-7-2] 選択トグル
+       [3-7-3] 主選択ノード
+       [3-7-4] 仮配置ノード取得
        ========================================================= */
     function clearSelection() {
       selectedNodeIds.length = 0;
@@ -1173,7 +1262,10 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [25] 仮配置確定・取消
+       [3] エディタ本体
+       [3-8] 仮配置確定 / 取消
+       [3-8-1] 決定
+       [3-8-2] キャンセル
        ========================================================= */
     function confirmPlacement() {
       const node = getPlacementNode();
@@ -1212,7 +1304,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [26] 接続編集
+       [3] エディタ本体
+       [3-9] 接続編集
+       [3-9-1] 接続
+       [3-9-2] 接続解除
+       [3-9-3] 選択削除
        ========================================================= */
     function connectSelectedNodes() {
       if (selectedNodeIds.length !== 2) return;
@@ -1246,10 +1342,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [27] ノード表示補助
-       [27-1] 色分け
-       [27-2] 原点基準相対座標
-       [27-3] 座標一覧文字列生成
+       [3] エディタ本体
+       [3-10] ノード表示補助
+       [3-10-1] 色分け
+       [3-10-2] 相対座標
+       [3-10-3] 座標一覧文字列
        ========================================================= */
     function getNodeColor(node) {
       if (node.type === "point") return "#ffffff";
@@ -1293,10 +1390,11 @@ OFF = 補正なし
     }
 
     /* =========================================================
-       [28] ステータスパネル更新
-       [28-1] 選択情報
-       [28-2] 主対象座標
-       [28-3] 各種モード状態反映
+       [3] エディタ本体
+       [3-11] ステータス表示更新
+       [3-11-1] 選択情報
+       [3-11-2] 主対象座標
+       [3-11-3] 各種モード反映
        ========================================================= */
     function updateEditorStatus() {
       const selectedText = selectedNodeIds.map(id => {
@@ -1341,10 +1439,11 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [29] UI表示更新
-       [29-1] 折りたたみ状態反映
-       [29-2] ボタン文言更新
-       [29-3] enabled/disabled更新
+       [1] UI / レイアウト
+       [1-12] UI表示更新
+       [1-12-1] 折りたたみ状態反映
+       [1-12-2] ボタン文言更新
+       [1-12-3] disabled更新
        ========================================================= */
     function updateSectionVisibility() {
       saveLoadSectionContent.classList.toggle("collapsed", !sectionState.saveLoad);
@@ -1384,12 +1483,13 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [30] ギズモ
-       [30-1] ノード位置からXYZ軸線を作る
-       [30-2] 線への距離判定
-       [30-3] ノードクリック判定
-       [30-4] ギズモ軸クリック判定
-       [30-5] スクリーン上での軸方向算出
+       [3] エディタ本体
+       [3-12] ギズモ
+       [3-12-1] 軸情報生成
+       [3-12-2] 線分距離
+       [3-12-3] ノード画面選択
+       [3-12-4] ギズモ軸選択
+       [3-12-5] 画面上の軸方向
        ========================================================= */
     function getGizmoInfo(node) {
       if (!node) return null;
@@ -1511,9 +1611,11 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [31] 対称処理・平面拘束
-       [31-1] 片側ノード移動時にミラー側を追従
-       [31-2] 単独ノードは平面拘束で x固定
+       [3] エディタ本体
+       [3-13] 対称処理 / 平面拘束
+       [3-13-1] ミラー追従
+       [3-13-2] 平面拘束
+       [3-13-3] 軸移動
        ========================================================= */
     function applyMirrorAndPlane(node) {
       if (!node) return;
@@ -1530,7 +1632,6 @@ ${coordBlock}`;
       }
     }
 
-    /* [31-3] 軸移動本体 */
     function moveNodeAlongAxis(node, axis, amount) {
       if (!node) return;
       const speed = 0.02;
@@ -1545,7 +1646,10 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [32] 対称平面・原点マーカー描画
+       [7] 描画 / 実行
+       [7-2] エディタ補助描画
+       [7-2-1] 対称平面
+       [7-2-2] 原点マーカー
        ========================================================= */
     function drawMirrorPlane() {
       if (!editorEnabled || !editorState.showMirrorPlane) return;
@@ -1586,10 +1690,11 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [33] エディタ描画
-       [33-1] エッジ描画
-       [33-2] ノード描画
-       [33-3] ギズモ描画
+       [7] 描画 / 実行
+       [7-3] エディタ描画
+       [7-3-1] エッジ
+       [7-3-2] ノード
+       [7-3-3] ギズモ
        ========================================================= */
     function drawEditorEdges() {
       for (const edge of editorEdges) {
@@ -1652,10 +1757,12 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [34] 参考画像の平面定義
-       [34-1] front = XY平面
-       [34-2] side  = ZY平面
-       [34-3] top   = XZ平面
+       [4] 参考画像
+       [4-2] 平面定義
+       [4-2-1] front = XY
+       [4-2-2] side = ZY
+       [4-2-3] top = XZ
+       [4-2-4] 画像中心のワールド座標
        ========================================================= */
     function getReferencePlaneBasis(plane) {
       if (plane === "front") {
@@ -1676,7 +1783,6 @@ ${coordBlock}`;
       };
     }
 
-    /* [34-4] 参考画像中心のワールド座標 */
     function getReferenceImageWorldCenter(plane) {
       const state = referenceImages[plane];
       const { U, V } = getReferencePlaneBasis(plane);
@@ -1687,10 +1793,11 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [35] 参考画像のスクリーン幾何計算
-       [35-1] 中心を投影
-       [35-2] U/V方向端点も投影
-       [35-3] 四隅と右下ハンドルを算出
+       [4] 参考画像
+       [4-3] スクリーン幾何
+       [4-3-1] 中心投影
+       [4-3-2] U/V端点投影
+       [4-3-3] 四隅 / ハンドル計算
        ========================================================= */
     function getReferenceImageScreenGeometry(plane) {
       const state = referenceImages[plane];
@@ -1735,9 +1842,10 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [36] 参考画像描画
-       [36-1] setTransformで平面画像を投影表示
-       [36-2] 枠線とハンドル表示
+       [4] 参考画像
+       [4-4] 描画
+       [4-4-1] 単体画像描画
+       [4-4-2] 奥行順描画
        ========================================================= */
     function drawReferenceImage(plane) {
       const state = referenceImages[plane];
@@ -1779,7 +1887,6 @@ ${coordBlock}`;
       ctx.restore();
     }
 
-    /* [36-3] 奥行順に描画 */
     function drawReferenceImages() {
       const order = ["top", "side", "front"]
         .map(plane => {
@@ -1795,9 +1902,14 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [37] スクリーン座標→平面ローカル変換
-       [37-1] 2x2連立方程式を解く
-       [37-2] 画像のドラッグ移動に使う
+       [4] 参考画像
+       [4-5] スクリーン→平面ローカル変換
+       [4-5-1] 2x2連立方程式
+       [4-5-2] 本体 / ハンドル判定
+       [4-5-3] 画像操作開始
+       [4-5-4] 画像操作解除
+       [4-5-5] 平面上移動
+       [4-5-6] 拡縮
        ========================================================= */
     function solve2x2ScreenDelta(dx, dy, ux, uy, vx, vy) {
       const det = ux * vy - uy * vx;
@@ -1808,7 +1920,6 @@ ${coordBlock}`;
       };
     }
 
-    /* [37-3] 参考画像の本体/ハンドル判定 */
     function pickReferenceImageAtScreen(x, y) {
       let best = null;
 
@@ -1840,7 +1951,6 @@ ${coordBlock}`;
       return best ? { plane: best.plane, mode: best.mode } : null;
     }
 
-    /* [37-4] 参考画像操作開始 */
     function startReferenceInteraction(plane, mode, x, y) {
       referenceTouch.touchId = null;
       referenceTouch.plane = plane;
@@ -1869,7 +1979,6 @@ ${coordBlock}`;
       referenceTouch.startDistance = 0;
     }
 
-    /* [37-5] 画像平面上移動 */
     function updateReferenceInteractionMove(plane, dx, dy) {
       const state = referenceImages[plane];
       const { U, V } = getReferencePlaneBasis(plane);
@@ -1889,7 +1998,6 @@ ${coordBlock}`;
       state.centerV += local.b;
     }
 
-    /* [37-6] 画像拡縮 */
     function updateReferenceInteractionResize(plane, x, y) {
       const state = referenceImages[plane];
       const g = getReferenceImageScreenGeometry(plane);
@@ -1903,7 +2011,10 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [38] 背景・デバッグ描画
+       [7] 描画 / 実行
+       [7-4] 背景 / デバッグ描画
+       [7-4-1] 背景クリア
+       [7-4-2] デバッグ文字
        ========================================================= */
     function drawBackground() {
       ctx.fillStyle = "black";
@@ -1924,10 +2035,15 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [39] 仮想スティックUI描画
-       [39-1] スティック円
-       [39-2] ノブ位置計算
-       [39-3] 基準座標
+       [5] 入力系
+       [5-1] 仮想スティックUI
+       [5-1-1] スティック描画
+       [5-1-2] ノブ位置計算
+       [5-1-3] 各スティック基準座標
+       [5-1-4] 定数
+       [5-1-5] タッチY補正
+       [5-1-6] タッチ状態
+       [5-1-7] 現在のギズモ対象
        ========================================================= */
     function drawStick(base, knobX, knobY, strokeColor, fillColor) {
       ctx.strokeStyle = strokeColor;
@@ -1982,13 +2098,11 @@ ${coordBlock}`;
       return { x: canvas.width - marginRight, y: canvas.height - 150 };
     }
 
-    /* [39-4] スティック定数 */
     const STICK_BASE_RADIUS = 30;
     const STICK_KNOB_RADIUS = 13;
     const STICK_MAX_DIST = 20;
     const STICK_TOUCH_RANGE = 48;
 
-    /* [39-5] タッチY補正 */
     const STICK_TOUCH_OFFSET_Y_ON = 72;
     const STICK_TOUCH_OFFSET_Y_OFF = 0;
 
@@ -1996,7 +2110,6 @@ ${coordBlock}`;
       return stickOffsetEnabled ? STICK_TOUCH_OFFSET_Y_ON : STICK_TOUCH_OFFSET_Y_OFF;
     }
 
-    /* [39-6] タッチ状態 */
     const touchState = {
       groundId: null, screenId: null, lookId: null,
       groundXPos: 0, groundYPos: 0,
@@ -2007,7 +2120,6 @@ ${coordBlock}`;
       lookX: 0, lookY: 0
     };
 
-    /* [39-7] 現在インタラクティブなギズモ対象 */
     function getInteractiveGizmoNode() {
       if (editorState.placementMode) return getPlacementNode();
       if (moveModeEnabled) return getPrimarySelectedNode();
@@ -2015,14 +2127,11 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [40] タッチ入力制御
-       [40-1] touchstart:
-              参考画像 → ギズモ → ノード選択 → スティック の優先順
-       [40-2] touchmove:
-              参考画像操作 / ギズモ移動 / スティック値更新
-       [40-3] touchend:
-              各操作の終了処理
-       ここはアプリ操作系の核心
+       [5] 入力系
+       [5-2] タッチ制御
+       [5-2-1] touchstart
+       [5-2-2] touchmove
+       [5-2-3] touchend / touchcancel
        ========================================================= */
     function setupTouchControls() {
       canvas.addEventListener("touchstart", (e) => {
@@ -2249,14 +2358,113 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [41] UIイベント接続
-       [41-1] 折りたたみ
-       [41-2] ON/OFF切替
-       [41-3] 保存/読込
-       [41-4] ノード追加
-       [41-5] 編集操作
-       [41-6] 原点操作
-       [41-7] 画像操作
+       [5] 入力系
+       [5-3] キーボード入力
+       [5-3-1] 状態配列
+       [5-3-2] keydown
+       [5-3-3] keyup
+       ========================================================= */
+    const keys = {};
+
+    window.addEventListener("keydown", (e) => {
+      keys[e.key] = true;
+      if (e.key === "r" || e.key === "R") resetCamera();
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.key] = false;
+    });
+
+    /* =========================================================
+       [5] 入力系
+       [5-4] 仮想スティック描画
+       [5-4-1] 左下下スティック
+       [5-4-2] 左下上スティック
+       [5-4-3] 右スティック
+       ========================================================= */
+    function drawTouchUI() {
+      const groundBase = getGroundStickBase();
+      const screenBase = getScreenStickBase();
+      const lookBase = getLookStickBase();
+
+      const g = getKnobPosition(groundBase, touchState.groundXPos, touchState.groundYPos, touchState.groundId);
+      const s = getKnobPosition(screenBase, touchState.screenXPos, touchState.screenYPos, touchState.screenId);
+      const l = getKnobPosition(lookBase, touchState.lookXPos, touchState.lookYPos, touchState.lookId);
+
+      drawStick(groundBase, g.knobX, g.knobY, "rgba(255,255,255,0.35)", "rgba(255,255,255,0.25)");
+      drawStick(screenBase, s.knobX, s.knobY, "rgba(180,255,180,0.40)", "rgba(180,255,180,0.22)");
+      drawStick(lookBase, l.knobX, l.knobY, "rgba(100,180,255,0.45)", "rgba(100,180,255,0.28)");
+    }
+
+    /* =========================================================
+       [7] 描画 / 実行
+       [7-5] カメラ更新
+       [7-5-1] キーボード移動
+       [7-5-2] スティック入力取得
+       [7-5-3] 地面平行移動
+       [7-5-4] 画面基準移動
+       [7-5-5] 視点回転
+       [7-5-6] pitch制限
+       ========================================================= */
+    function updateCamera() {
+      const { forward, right, up } = getCameraBasis();
+
+      const moveSpeed = 0.15;
+      const verticalSpeed = 0.08;
+      const rotateSpeed = 0.025;
+
+      if (keys["ArrowUp"]) camera.position = add(camera.position, mul(forward, moveSpeed));
+      if (keys["ArrowDown"]) camera.position = add(camera.position, mul(forward, -moveSpeed));
+      if (keys["ArrowLeft"]) camera.position = add(camera.position, mul(right, -moveSpeed));
+      if (keys["ArrowRight"]) camera.position = add(camera.position, mul(right, moveSpeed));
+      if (keys["q"] || keys["Q"]) camera.position.y += verticalSpeed;
+      if (keys["e"] || keys["E"]) camera.position.y -= verticalSpeed;
+      if (keys["a"] || keys["A"]) camera.yaw -= rotateSpeed;
+      if (keys["d"] || keys["D"]) camera.yaw += rotateSpeed;
+      if (keys["w"] || keys["W"]) camera.pitch += rotateSpeed;
+      if (keys["s"] || keys["S"]) camera.pitch -= rotateSpeed;
+
+      const groundInputX = applyStickCurve(touchState.groundX, 0.08, 2.8);
+      const groundInputY = applyStickCurve(touchState.groundY, 0.08, 2.8);
+      const screenInputX = applyStickCurve(touchState.screenX, 0.08, 2.8);
+      const screenInputY = applyStickCurve(touchState.screenY, 0.08, 2.8);
+      const lookInputX = applyStickCurve(touchState.lookX, 0.10, 3.2);
+      const lookInputY = applyStickCurve(touchState.lookY, 0.10, 3.2);
+
+      const flatForward = normalize(vec(forward.x, 0, forward.z));
+      const flatRight = normalize(vec(right.x, 0, right.z));
+
+      if (touchState.groundId !== null) {
+        camera.position = add(camera.position, mul(flatRight, groundInputX * moveSpeed));
+        camera.position = add(camera.position, mul(flatForward, -groundInputY * moveSpeed));
+      }
+
+      if (touchState.screenId !== null) {
+        camera.position = add(camera.position, mul(right, screenInputX * moveSpeed * 0.5));
+        camera.position = add(camera.position, mul(up, -screenInputY * moveSpeed * 0.5));
+      }
+
+      if (touchState.lookId !== null) {
+        const stickLookSpeed = 0.01;
+        camera.yaw -= lookInputX * stickLookSpeed;
+        camera.pitch -= lookInputY * stickLookSpeed;
+      }
+
+      const limit = Math.PI / 2 - 0.05;
+      if (camera.pitch > limit) camera.pitch = limit;
+      if (camera.pitch < -limit) camera.pitch = -limit;
+    }
+
+    /* =========================================================
+       [1] UI / レイアウト
+       [1-13] UIイベント接続
+       [1-13-1] 折りたたみ
+       [1-13-2] 表示切替
+       [1-13-3] 保存 / 読み込み
+       [1-13-4] ノード追加
+       [1-13-5] 編集操作
+       [1-13-6] 原点操作
+       [1-13-7] 参考画像操作
        ========================================================= */
     toggleSaveLoadSectionButton.addEventListener("click", () => {
       sectionState.saveLoad = !sectionState.saveLoad;
@@ -2469,7 +2677,13 @@ ${coordBlock}`;
       updateEditorStatus();
     });
 
-    /* [41-8] 画像クリア */
+    /* =========================================================
+       [4] 参考画像
+       [4-6] 読み込み / クリア
+       [4-6-1] 画像クリア
+       [4-6-2] 画像読み込み
+       [4-6-3] ボタン接続
+       ========================================================= */
     function clearReferenceImage(plane) {
       const state = referenceImages[plane];
       state.img = null;
@@ -2484,7 +2698,6 @@ ${coordBlock}`;
       updateEditorStatus();
     }
 
-    /* [41-9] 画像読み込み */
     function handleImageInputChange(plane, input) {
       const file = input.files && input.files[0];
       if (!file) return;
@@ -2516,102 +2729,14 @@ ${coordBlock}`;
     topImageInput.addEventListener("change", () => handleImageInputChange("top", topImageInput));
 
     /* =========================================================
-       [42] キーボード入力
-       ========================================================= */
-    const keys = {};
-
-    window.addEventListener("keydown", (e) => {
-      keys[e.key] = true;
-      if (e.key === "r" || e.key === "R") resetCamera();
-    });
-
-    window.addEventListener("keyup", (e) => {
-      keys[e.key] = false;
-    });
-
-    /* =========================================================
-       [43] スティックUI描画
-       ========================================================= */
-    function drawTouchUI() {
-      const groundBase = getGroundStickBase();
-      const screenBase = getScreenStickBase();
-      const lookBase = getLookStickBase();
-
-      const g = getKnobPosition(groundBase, touchState.groundXPos, touchState.groundYPos, touchState.groundId);
-      const s = getKnobPosition(screenBase, touchState.screenXPos, touchState.screenYPos, touchState.screenId);
-      const l = getKnobPosition(lookBase, touchState.lookXPos, touchState.lookYPos, touchState.lookId);
-
-      drawStick(groundBase, g.knobX, g.knobY, "rgba(255,255,255,0.35)", "rgba(255,255,255,0.25)");
-      drawStick(screenBase, s.knobX, s.knobY, "rgba(180,255,180,0.40)", "rgba(180,255,180,0.22)");
-      drawStick(lookBase, l.knobX, l.knobY, "rgba(100,180,255,0.45)", "rgba(100,180,255,0.28)");
-    }
-
-    /* =========================================================
-       [44] カメラ更新
-       [44-1] キーボード移動
-       [44-2] スティック移動
-       [44-3] 地面平行移動 / 画面基準移動 / 視点回転
-       [44-4] pitch制限
-       ここもアプリの根幹
-       ========================================================= */
-    function updateCamera() {
-      const { forward, right, up } = getCameraBasis();
-
-      const moveSpeed = 0.15;
-      const verticalSpeed = 0.08;
-      const rotateSpeed = 0.025;
-
-      if (keys["ArrowUp"]) camera.position = add(camera.position, mul(forward, moveSpeed));
-      if (keys["ArrowDown"]) camera.position = add(camera.position, mul(forward, -moveSpeed));
-      if (keys["ArrowLeft"]) camera.position = add(camera.position, mul(right, -moveSpeed));
-      if (keys["ArrowRight"]) camera.position = add(camera.position, mul(right, moveSpeed));
-      if (keys["q"] || keys["Q"]) camera.position.y += verticalSpeed;
-      if (keys["e"] || keys["E"]) camera.position.y -= verticalSpeed;
-      if (keys["a"] || keys["A"]) camera.yaw -= rotateSpeed;
-      if (keys["d"] || keys["D"]) camera.yaw += rotateSpeed;
-      if (keys["w"] || keys["W"]) camera.pitch += rotateSpeed;
-      if (keys["s"] || keys["S"]) camera.pitch -= rotateSpeed;
-
-      const groundInputX = applyStickCurve(touchState.groundX, 0.08, 2.8);
-      const groundInputY = applyStickCurve(touchState.groundY, 0.08, 2.8);
-      const screenInputX = applyStickCurve(touchState.screenX, 0.08, 2.8);
-      const screenInputY = applyStickCurve(touchState.screenY, 0.08, 2.8);
-      const lookInputX = applyStickCurve(touchState.lookX, 0.10, 3.2);
-      const lookInputY = applyStickCurve(touchState.lookY, 0.10, 3.2);
-
-      const flatForward = normalize(vec(forward.x, 0, forward.z));
-      const flatRight = normalize(vec(right.x, 0, right.z));
-
-      if (touchState.groundId !== null) {
-        camera.position = add(camera.position, mul(flatRight, groundInputX * moveSpeed));
-        camera.position = add(camera.position, mul(flatForward, -groundInputY * moveSpeed));
-      }
-
-      if (touchState.screenId !== null) {
-        camera.position = add(camera.position, mul(right, screenInputX * moveSpeed * 0.5));
-        camera.position = add(camera.position, mul(up, -screenInputY * moveSpeed * 0.5));
-      }
-
-      if (touchState.lookId !== null) {
-        const stickLookSpeed = 0.01;
-        camera.yaw -= lookInputX * stickLookSpeed;
-        camera.pitch -= lookInputY * stickLookSpeed;
-      }
-
-      const limit = Math.PI / 2 - 0.05;
-      if (camera.pitch > limit) camera.pitch = limit;
-      if (camera.pitch < -limit) camera.pitch = -limit;
-    }
-
-    /* =========================================================
-       [45] メインループ
-       [45-1] 入力反映
-       [45-2] 背景描画
-       [45-3] ワールド描画
-       [45-4] エディタ描画
-       [45-5] UI描画
-       [45-6] requestAnimationFrameで継続
-       この関数が全体の駆動部
+       [7] 描画 / 実行
+       [7-6] メインループ
+       [7-6-1] 入力反映
+       [7-6-2] 背景
+       [7-6-3] ワールド
+       [7-6-4] エディタ
+       [7-6-5] UI
+       [7-6-6] requestAnimationFrame
        ========================================================= */
     function loop() {
       updateCamera();
@@ -2629,12 +2754,13 @@ ${coordBlock}`;
     }
 
     /* =========================================================
-       [46] 初期化
-       [46-1] リセットボタン
-       [46-2] タッチ制御セットアップ
-       [46-3] UI初期描画
-       [46-4] 保存一覧読込
-       [46-5] ループ開始
+       [7] 描画 / 実行
+       [7-7] 初期化
+       [7-7-1] リセットボタン
+       [7-7-2] タッチ制御セットアップ
+       [7-7-3] UI初期更新
+       [7-7-4] 保存一覧初期化
+       [7-7-5] ループ開始
        ========================================================= */
     resetButton.addEventListener("click", resetCamera);
     resetButton.addEventListener("touchstart", (e) => {
