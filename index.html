@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>3D Ground Triple Sticks + Gizmo Editor</title>
   <style>
+    /* 【1】ページ全体の基本見た目 */
     html, body {
       margin: 0;
       padding: 0;
@@ -16,6 +17,7 @@
       font-family: sans-serif;
     }
 
+    /* 【1-1】描画用キャンバスを画面全体に広げる */
     canvas {
       display: block;
       width: 100vw;
@@ -24,6 +26,7 @@
       touch-action: none;
     }
 
+    /* 【1-2】上部UI全体 */
     #topbar {
       position: absolute;
       top: 6px;
@@ -36,6 +39,7 @@
       pointer-events: none;
     }
 
+    /* 【1-3】左上ボタン列 */
     #leftMenu {
       display: flex;
       flex-direction: column;
@@ -43,6 +47,7 @@
       pointer-events: none;
     }
 
+    /* 【1-4】共通ボタン */
     .uiButton {
       pointer-events: auto;
       border: 1px solid rgba(255,255,255,0.35);
@@ -64,6 +69,7 @@
       opacity: 0.45;
     }
 
+    /* 【1-5】入力欄・セレクト */
     .uiTextInput, .uiSelect {
       pointer-events: auto;
       border: 1px solid rgba(255,255,255,0.35);
@@ -85,6 +91,7 @@
       color: black;
     }
 
+    /* 【1-6】操作説明パネル */
     #info {
       position: absolute;
       top: 52px;
@@ -102,6 +109,7 @@
       white-space: pre-line;
     }
 
+    /* 【1-7】右上の編集パネル */
     #editorPanel {
       position: absolute;
       top: 52px;
@@ -136,6 +144,7 @@
       gap: 6px;
     }
 
+    /* 【1-8】編集状態表示欄 */
     #editorStatus {
       margin-top: 10px;
       font-size: 11px;
@@ -146,8 +155,10 @@
   </style>
 </head>
 <body>
+  <!-- 【2】3D風描画を行うキャンバス -->
   <canvas id="canvas"></canvas>
 
+  <!-- 【2-1】上部ボタン群 -->
   <div id="topbar">
     <div id="leftMenu">
       <button id="toggleInfoButton" class="uiButton">操作説明: OFF</button>
@@ -159,6 +170,7 @@
     <button id="resetButton" class="uiButton">RESET</button>
   </div>
 
+  <!-- 【2-2】操作説明 -->
   <div id="info">
 PC:
 ↑↓ 前後 / ←→ 左右平行 / A D 回転 / W S 見上げ見下ろし / Q E 上下 / R リセット
@@ -183,6 +195,7 @@ OFF = 補正なし
 ※ 点の移動ギズモにも同じ補正がかかる
   </div>
 
+  <!-- 【2-3】編集パネル本体 -->
   <div id="editorPanel">
     <h3>人形作成</h3>
 
@@ -222,6 +235,9 @@ OFF = 補正なし
   </div>
 
   <script>
+    // =========================================================
+    // 【3】Canvas と UI 要素の取得
+    // =========================================================
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
 
@@ -256,6 +272,10 @@ OFF = 補正なし
     const deleteSelectedButton = document.getElementById("deleteSelectedButton");
     const editorStatus = document.getElementById("editorStatus");
 
+    // =========================================================
+    // 【4】Canvasサイズ調整
+    // 【4-1】画面サイズに合わせて内部描画解像度も変更
+    // =========================================================
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -263,11 +283,16 @@ OFF = 補正なし
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
+    // =========================================================
+    // 【5】ベクトル計算の基本関数群
+    // 【5-1】3D計算の土台
+    // =========================================================
     function vec(x, y, z) { return { x, y, z }; }
     function add(a, b) { return vec(a.x + b.x, a.y + b.y, a.z + b.z); }
     function sub(a, b) { return vec(a.x - b.x, a.y - b.y, a.z - b.z); }
     function mul(v, s) { return vec(v.x * s, v.y * s, v.z * s); }
     function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+
     function cross(a, b) {
       return vec(
         a.y * b.z - a.z * b.y,
@@ -275,16 +300,26 @@ OFF = 補正なし
         a.x * b.y - a.y * b.x
       );
     }
+
     function length(v) { return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+
     function normalize(v) {
       const len = length(v);
       if (len === 0) return vec(0, 0, 0);
       return vec(v.x / len, v.y / len, v.z / len);
     }
+
     function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
     function sign(v) { return v > 0 ? 1 : v < 0 ? -1 : 0; }
+
+    // 【5-2】2D画面上の距離計算
     function distance2D(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
 
+    // =========================================================
+    // 【6】スティック入力を扱いやすくするカーブ補正
+    // 【6-1】中心近くは無視（deadzone）
+    // 【6-2】端ほど強く効く（指数カーブ）
+    // =========================================================
     function applyStickCurve(v, deadzone = 0.08, exponent = 2.6) {
       const a = Math.abs(v);
       if (a < deadzone) return 0;
@@ -293,6 +328,9 @@ OFF = 補正なし
       return sign(v) * curved;
     }
 
+    // =========================================================
+    // 【7】カメラの初期状態と現在状態
+    // =========================================================
     const INITIAL_CAMERA = {
       position: vec(0, 2, -8),
       yaw: 0,
@@ -307,6 +345,7 @@ OFF = 補正なし
 
     const worldUp = vec(0, 1, 0);
 
+    // 【7-1】カメラとスティック値を初期化
     function resetCamera() {
       camera.position = vec(INITIAL_CAMERA.position.x, INITIAL_CAMERA.position.y, INITIAL_CAMERA.position.z);
       camera.yaw = INITIAL_CAMERA.yaw;
@@ -320,6 +359,10 @@ OFF = 補正なし
       touchState.lookY = 0;
     }
 
+    // =========================================================
+    // 【8】カメラ基底ベクトル
+    // 【8-1】yaw, pitch から forward/right/up を作る
+    // =========================================================
     function getCameraBasis() {
       const cp = Math.cos(camera.pitch);
       const sp = Math.sin(camera.pitch);
@@ -330,9 +373,14 @@ OFF = 補正なし
       let right = cross(forward, worldUp);
       right = length(right) < 0.0001 ? vec(1, 0, 0) : normalize(right);
       const up = normalize(cross(right, forward));
+
       return { forward, right, up };
     }
 
+    // =========================================================
+    // 【9】3D→2D投影
+    // 【9-1】カメラ基準に座標変換し、透視投影で画面へ落とす
+    // =========================================================
     function projectPoint(p) {
       const { forward, right, up } = getCameraBasis();
       const v = sub(p, camera.position);
@@ -352,10 +400,14 @@ OFF = 補正なし
       };
     }
 
+    // =========================================================
+    // 【10】3D描画の基本関数
+    // =========================================================
     function drawLine3D(a, b, color = "white", width = 1) {
       const pa = projectPoint(a);
       const pb = projectPoint(b);
       if (!pa.visible || !pb.visible) return;
+
       ctx.strokeStyle = color;
       ctx.lineWidth = width;
       ctx.beginPath();
@@ -367,12 +419,14 @@ OFF = 補正なし
     function drawPoint3D(p, color = "white", size = 4) {
       const pp = projectPoint(p);
       if (!pp.visible) return;
+
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(pp.x, pp.y, size, 0, Math.PI * 2);
       ctx.fill();
     }
 
+    // 【10-1】pointノード用の四角描画
     function drawSquare3D(p, color = "white", size = 8) {
       const pp = projectPoint(p);
       if (!pp.visible) return;
@@ -380,11 +434,16 @@ OFF = 補正なし
       ctx.fillRect(pp.x - size / 2, pp.y - size / 2, size, size);
     }
 
+    // =========================================================
+    // 【11】地面グリッドと座標軸
+    // =========================================================
     function drawGroundGrid() {
       const xMin = -20, xMax = 20, zMin = 1, zMax = 40, step = 1;
+
       for (let x = xMin; x <= xMax; x += step) {
         drawLine3D(vec(x, 0, zMin), vec(x, 0, zMax), x === 0 ? "#ffffff" : "#666666", x === 0 ? 2 : 1);
       }
+
       for (let z = zMin; z <= zMax; z += step) {
         drawLine3D(vec(xMin, 0, z), vec(xMax, 0, z), z % 5 === 0 ? "#888888" : "#444444", z % 5 === 0 ? 1.5 : 1);
       }
@@ -396,34 +455,44 @@ OFF = 補正なし
       drawLine3D(vec(0, 0, 0), vec(0, 0, 3), "cyan", 2);
     }
 
+    // =========================================================
+    // 【12】エディタ全体の状態フラグ
+    // =========================================================
     let editorEnabled = true;
     let editorPanelEnabled = true;
     let infoEnabled = false;
     let moveModeEnabled = false;
     let stickOffsetEnabled = true;
 
+    // 【12-1】ID採番
     let nextNodeId = 1;
     let nextEdgeId = 1;
 
+    // 【12-2】モデル本体
     const editorNodes = [];
     const editorEdges = [];
     const editorFaces = [];
     const selectedNodeIds = [];
 
+    // 【12-3】編集中の細かい状態
     const editorState = {
-      placementMode: false,
-      activePlacementNodeId: null,
-      activePlacementMirrorId: null,
-      symmetryMode: false,
-      showMirrorPlane: true,
-      mirrorValue: 0,
-      planeConstraint: true,
-      activeGizmoAxis: null,
-      gizmoTouchId: null,
+      placementMode: false,          // 仮配置中か
+      activePlacementNodeId: null,  // 仮配置中の主ノード
+      activePlacementMirrorId: null,// 仮配置中のミラーノード
+      symmetryMode: false,          // 対称生成ON/OFF
+      showMirrorPlane: true,        // 対称平面を表示するか
+      mirrorValue: 0,               // 対称面のx値
+      planeConstraint: true,        // x固定を使うか
+      activeGizmoAxis: null,        // 今掴んでいる軸 x/y/z
+      gizmoTouchId: null,           // その軸を触っている指ID
       gizmoLastX: 0,
       gizmoLastY: 0
     };
 
+    // =========================================================
+    // 【13】保存機能（localStorage）
+    // 【13-1】ブラウザ内に名前付き保存する
+    // =========================================================
     const MODEL_STORAGE_KEY = "gizmo_editor_saved_models_v1";
 
     function getSavedModelsMap() {
@@ -442,6 +511,7 @@ OFF = 補正なし
       localStorage.setItem(MODEL_STORAGE_KEY, JSON.stringify(map));
     }
 
+    // 【13-2】現在のモデル状態を保存用スナップショットに変換
     function createModelSnapshot() {
       return {
         savedAt: new Date().toISOString(),
@@ -459,6 +529,7 @@ OFF = 補正なし
       };
     }
 
+    // 【13-3】保存データを現在のエディタに読み込む
     function applyModelSnapshot(snapshot) {
       editorNodes.length = 0;
       editorEdges.length = 0;
@@ -478,6 +549,7 @@ OFF = 補正なし
       nextNodeId = Number.isFinite(snapshot.nextNodeId) ? snapshot.nextNodeId : 1;
       nextEdgeId = Number.isFinite(snapshot.nextEdgeId) ? snapshot.nextEdgeId : 1;
 
+      // 読み込み時は中途半端な編集中状態をリセット
       editorState.placementMode = false;
       editorState.activePlacementNodeId = null;
       editorState.activePlacementMirrorId = null;
@@ -496,6 +568,7 @@ OFF = 補正なし
       updateEditorStatus();
     }
 
+    // 【13-4】セレクトボックスへ保存済みモデル一覧を反映
     function refreshSavedModelsSelect(selectedName = "") {
       const map = getSavedModelsMap();
       const names = Object.keys(map).sort((a, b) => a.localeCompare(b, "ja"));
@@ -583,6 +656,9 @@ OFF = 補正なし
       alert(`「${name}」を削除しました`);
     }
 
+    // =========================================================
+    // 【14】ノード・エッジ基本操作
+    // =========================================================
     function getNodeById(id) {
       return editorNodes.find(n => n.id === id) || null;
     }
@@ -597,32 +673,41 @@ OFF = 補正なし
       }
     }
 
+    // 【14-1】新規ノードの出現位置を決める
+    // カメラ前方6の位置へ出す
     function getSpawnPosition(onMirrorPlane = false) {
       const { forward } = getCameraBasis();
       const base = add(camera.position, mul(forward, 6));
       return onMirrorPlane ? vec(editorState.mirrorValue, base.y, base.z) : vec(base.x, base.y, base.z);
     }
 
+    // 【14-2】ノードデータ生成
     function createEditorNodeData(type, dof, p, mirrored = false) {
       return {
         id: nextNodeId++,
-        type,
-        dof,
+        type,               // "point" or "joint"
+        dof,                // 自由度
         x: p.x,
         y: p.y,
         z: p.z,
-        isTemporary: true,
-        mirrorPairId: null,
+        isTemporary: true,  // 仮配置中フラグ
+        mirrorPairId: null, // 対称相手
         mirrored
       };
     }
 
+    // =========================================================
+    // 【15】ノード追加処理
+    // 【15-1】対称モードなら反対側も同時生成
+    // 【15-2】追加後は仮配置モードへ入る
+    // =========================================================
     function addEditorNode(type, dof) {
       const p = getSpawnPosition(!editorState.symmetryMode);
       const node = createEditorNodeData(type, dof, p, false);
       editorNodes.push(node);
 
       let mirrorNode = null;
+
       if (editorState.symmetryMode) {
         const mp = vec(2 * editorState.mirrorValue - p.x, p.y, p.z);
         mirrorNode = createEditorNodeData(type, dof, mp, true);
@@ -645,6 +730,9 @@ OFF = 補正なし
       updateEditorStatus();
     }
 
+    // =========================================================
+    // 【16】選択管理
+    // =========================================================
     function clearSelection() {
       selectedNodeIds.length = 0;
       editorState.activeGizmoAxis = null;
@@ -653,14 +741,18 @@ OFF = 補正なし
     }
 
     function toggleNodeSelection(id) {
+      // 仮配置中は他の選択を変えない
       if (editorState.placementMode) return;
+
       const idx = selectedNodeIds.indexOf(id);
       if (idx >= 0) {
         selectedNodeIds.splice(idx, 1);
       } else {
+        // 2点まで選択可能
         if (selectedNodeIds.length >= 2) selectedNodeIds.shift();
         selectedNodeIds.push(id);
       }
+
       editorState.activeGizmoAxis = null;
       editorState.gizmoTouchId = null;
       updateEditorStatus();
@@ -679,6 +771,9 @@ OFF = 補正なし
       return getNodeById(editorState.activePlacementMirrorId);
     }
 
+    // =========================================================
+    // 【17】仮配置の確定 / 取消
+    // =========================================================
     function confirmPlacement() {
       const node = getPlacementNode();
       if (!node) return;
@@ -702,15 +797,20 @@ OFF = 補正なし
         const idx = editorNodes.findIndex(n => n.id === id);
         if (idx >= 0) editorNodes.splice(idx, 1);
       }
+
       editorState.placementMode = false;
       editorState.activePlacementNodeId = null;
       editorState.activePlacementMirrorId = null;
       editorState.activeGizmoAxis = null;
       editorState.gizmoTouchId = null;
+
       clearSelection();
       updateEditorStatus();
     }
 
+    // =========================================================
+    // 【18】接続・切断・削除
+    // =========================================================
     function connectSelectedNodes() {
       if (selectedNodeIds.length !== 2) return;
       const [a, b] = selectedNodeIds;
@@ -741,6 +841,9 @@ OFF = 補正なし
       updateEditorStatus();
     }
 
+    // =========================================================
+    // 【19】ノード表示色
+    // =========================================================
     function getNodeColor(node) {
       if (node.type === "point") return "#ffffff";
       if (node.dof === 1) return "#ffd54a";
@@ -749,6 +852,9 @@ OFF = 補正なし
       return "#cccccc";
     }
 
+    // =========================================================
+    // 【20】右パネル下の状態表示を更新
+    // =========================================================
     function updateEditorStatus() {
       const selectedText = selectedNodeIds.map(id => {
         const n = getNodeById(id);
@@ -780,6 +886,9 @@ z=${primary.z.toFixed(2)}`
 ${coordText}`;
     }
 
+    // =========================================================
+    // 【21】パネル表示とボタン文言の更新
+    // =========================================================
     function updatePanels() {
       infoPanel.style.display = infoEnabled ? "block" : "none";
       editorPanel.style.display = (editorEnabled && editorPanelEnabled) ? "block" : "none";
@@ -798,6 +907,10 @@ ${coordText}`;
       releasePlaneButton.disabled = !editorState.planeConstraint;
     }
 
+    // =========================================================
+    // 【22】ギズモ情報
+    // 【22-1】選択ノード位置から x/y/z 軸を生やす
+    // =========================================================
     function getGizmoInfo(node) {
       if (!node) return null;
       const origin = vec(node.x, node.y, node.z);
@@ -809,12 +922,15 @@ ${coordText}`;
       };
     }
 
+    // 【22-2】画面上の点から線分までの距離
+    // 軸の「先端だけでなく線でも掴める」ために使う
     function pointToSegmentDistance(px, py, ax, ay, bx, by) {
       const abx = bx - ax;
       const aby = by - ay;
       const apx = px - ax;
       const apy = py - ay;
       const abLen2 = abx * abx + aby * aby;
+
       if (abLen2 < 0.0001) return Math.hypot(px - ax, py - ay);
 
       let t = (apx * abx + apy * aby) / abLen2;
@@ -825,12 +941,19 @@ ${coordText}`;
       return Math.hypot(px - cx, py - cy);
     }
 
+    // =========================================================
+    // 【23】画面上の当たり判定
+    // =========================================================
+
+    // 【23-1】タップ位置に最も近いノードを拾う
     function pickNodeAtScreen(x, y) {
       let bestId = null;
       let bestDist = Infinity;
+
       for (const node of editorNodes) {
         const pp = projectPoint(vec(node.x, node.y, node.z));
         if (!pp.visible) continue;
+
         const dist = distance2D(pp.x, pp.y, x, y);
         if (dist < 24 && dist < bestDist) {
           bestDist = dist;
@@ -840,6 +963,7 @@ ${coordText}`;
       return bestId;
     }
 
+    // 【23-2】ギズモの x/y/z 軸のどれを掴んだか判定
     function pickGizmoAxisAtScreen(x, y, node) {
       const gizmo = getGizmoInfo(node);
       if (!gizmo) return null;
@@ -893,6 +1017,10 @@ ${coordText}`;
       return best;
     }
 
+    // =========================================================
+    // 【24】ギズモ移動の核心
+    // 【24-1】3D軸が画面上でどの向きに見えているかを求める
+    // =========================================================
     function getProjectedGizmoAxisDirection(node, axis) {
       const gizmo = getGizmoInfo(node);
       if (!gizmo) return null;
@@ -914,8 +1042,13 @@ ${coordText}`;
       return { x: dx / len, y: dy / len };
     }
 
+    // =========================================================
+    // 【25】対称モード / 平面拘束
+    // 【25-1】移動後に相方ノードや x固定を反映
+    // =========================================================
     function applyMirrorAndPlane(node) {
       if (!node) return;
+
       if (node.mirrorPairId) {
         const mirror = getNodeById(node.mirrorPairId);
         if (mirror) {
@@ -928,6 +1061,7 @@ ${coordText}`;
       }
     }
 
+    // 【25-2】軸方向へノード移動
     function moveNodeAlongAxis(node, axis, amount) {
       if (!node) return;
       const speed = 0.02;
@@ -940,8 +1074,12 @@ ${coordText}`;
       updateEditorStatus();
     }
 
+    // =========================================================
+    // 【26】対称平面の描画
+    // =========================================================
     function drawMirrorPlane() {
       if (!editorEnabled || !editorState.showMirrorPlane) return;
+
       const x = editorState.mirrorValue;
       const y0 = -1, y1 = 4, z0 = 2, z1 = 20;
 
@@ -951,10 +1089,14 @@ ${coordText}`;
       for (let z = z0; z <= z1; z += 1) {
         drawLine3D(vec(x, y0, z), vec(x, y1, z), "rgba(120,160,255,0.22)", 1);
       }
+
       drawLine3D(vec(x, y0, z0), vec(x, y1, z0), "rgba(160,220,255,0.55)", 2);
       drawLine3D(vec(x, y0, z1), vec(x, y1, z1), "rgba(160,220,255,0.55)", 2);
     }
 
+    // =========================================================
+    // 【27】エッジとノードの描画
+    // =========================================================
     function drawEditorEdges() {
       for (const edge of editorEdges) {
         const a = getNodeById(edge.a);
@@ -993,6 +1135,10 @@ ${coordText}`;
       }
     }
 
+    // =========================================================
+    // 【28】ギズモ描画
+    // 【28-1】仮配置中 or 移動モード時だけ表示
+    // =========================================================
     function drawGizmo() {
       let node = null;
       if (editorState.placementMode) node = getPlacementNode();
@@ -1015,6 +1161,9 @@ ${coordText}`;
       drawPoint3D(g.zEnd, zColor, 6);
     }
 
+    // =========================================================
+    // 【29】背景・デバッグ表示
+    // =========================================================
     function drawBackground() {
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1027,6 +1176,9 @@ ${coordText}`;
       ctx.fillText(`yaw: ${camera.yaw.toFixed(2)}   pitch: ${camera.pitch.toFixed(2)}`, 8, canvas.height - 15);
     }
 
+    // =========================================================
+    // 【30】仮想スティック描画
+    // =========================================================
     function drawStick(base, knobX, knobY, strokeColor, fillColor) {
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 1.5;
@@ -1046,6 +1198,7 @@ ${coordText}`;
 
     function getKnobPosition(base, xPos, yPos, activeId) {
       let knobX = base.x, knobY = base.y;
+
       if (activeId !== null) {
         const dx = xPos - base.x;
         const dy = yPos - base.y;
@@ -1056,12 +1209,18 @@ ${coordText}`;
           mx = dx * STICK_MAX_DIST / dist;
           my = dy * STICK_MAX_DIST / dist;
         }
+
         knobX = base.x + mx;
         knobY = base.y + my;
       }
+
       return { knobX, knobY };
     }
 
+    // =========================================================
+    // 【31】スティックの配置
+    // 【31-1】右スティックは編集パネルと重ならないよう左へずらす
+    // =========================================================
     function getGroundStickBase() {
       return { x: 78, y: canvas.height - 150 };
     }
@@ -1077,6 +1236,9 @@ ${coordText}`;
       return { x: canvas.width - marginRight, y: canvas.height - 150 };
     }
 
+    // =========================================================
+    // 【32】スティック定数と補正
+    // =========================================================
     const STICK_BASE_RADIUS = 30;
     const STICK_KNOB_RADIUS = 13;
     const STICK_MAX_DIST = 20;
@@ -1089,6 +1251,9 @@ ${coordText}`;
       return stickOffsetEnabled ? STICK_TOUCH_OFFSET_Y_ON : STICK_TOUCH_OFFSET_Y_OFF;
     }
 
+    // =========================================================
+    // 【33】現在のタッチ状態
+    // =========================================================
     const touchState = {
       groundId: null, screenId: null, lookId: null,
       groundXPos: 0, groundYPos: 0,
@@ -1099,12 +1264,18 @@ ${coordText}`;
       lookX: 0, lookY: 0
     };
 
+    // 【33-1】今ギズモで操作できる対象ノードを返す
     function getInteractiveGizmoNode() {
       if (editorState.placementMode) return getPlacementNode();
       if (moveModeEnabled) return getPrimarySelectedNode();
       return null;
     }
 
+    // =========================================================
+    // 【34】タッチ処理の中心
+    // 【34-1】優先順位:
+    //   ギズモ操作 > ノード選択 > スティック
+    // =========================================================
     function setupTouchControls() {
       canvas.addEventListener("touchstart", (e) => {
         if (e.target !== canvas) return;
@@ -1115,6 +1286,7 @@ ${coordText}`;
         const lookBase = getLookStickBase();
         const touchOffsetY = getStickTouchOffsetY();
 
+        // 【34-2】まずギズモを掴めるか判定
         const gizmoNode = getInteractiveGizmoNode();
         if (editorEnabled && gizmoNode) {
           for (const t of e.changedTouches) {
@@ -1131,6 +1303,7 @@ ${coordText}`;
           }
         }
 
+        // 【34-3】次にノード選択
         if (editorEnabled && !editorState.placementMode) {
           for (const t of e.changedTouches) {
             const pickedId = pickNodeAtScreen(t.clientX, t.clientY);
@@ -1141,6 +1314,7 @@ ${coordText}`;
           }
         }
 
+        // 【34-4】最後にスティック割り当て
         for (const t of e.changedTouches) {
           const adjustedGroundY = t.clientY - touchOffsetY;
           const adjustedScreenY = t.clientY - touchOffsetY;
@@ -1164,7 +1338,7 @@ ${coordText}`;
           }
           if (distLook <= STICK_TOUCH_RANGE && touchState.lookId === null) {
             touchState.lookId = t.identifier;
-            touchState.lookXPos = t.identifier ? t.clientX : 0;
+            touchState.lookXPos = t.clientX;
             touchState.lookYPos = adjustedLookY;
             continue;
           }
@@ -1177,6 +1351,7 @@ ${coordText}`;
         const interactiveNode = getInteractiveGizmoNode();
         const touchOffsetY = getStickTouchOffsetY();
 
+        // 【34-5】ギズモ軸を掴んでいるなら、まずノード移動
         for (const t of e.changedTouches) {
           if (
             editorState.gizmoTouchId !== null &&
@@ -1190,6 +1365,7 @@ ${coordText}`;
 
             const dir = getProjectedGizmoAxisDirection(interactiveNode, editorState.activeGizmoAxis);
             if (dir) {
+              // 画面移動量を、軸方向への成分だけ取り出す
               const amount = dx * dir.x + dy * dir.y;
               moveNodeAlongAxis(interactiveNode, editorState.activeGizmoAxis, amount);
             }
@@ -1200,6 +1376,7 @@ ${coordText}`;
           }
         }
 
+        // 【34-6】スティックの値を更新
         const groundBase = getGroundStickBase();
         const screenBase = getScreenStickBase();
         const lookBase = getLookStickBase();
@@ -1293,6 +1470,9 @@ ${coordText}`;
       canvas.addEventListener("touchcancel", endTouch, { passive: false });
     }
 
+    // =========================================================
+    // 【35】各種ボタンイベント
+    // =========================================================
     toggleInfoButton.addEventListener("click", () => {
       infoEnabled = !infoEnabled;
       updatePanels();
@@ -1433,15 +1613,23 @@ ${coordText}`;
       deleteSelectedNodes();
     });
 
+    // =========================================================
+    // 【36】キーボード入力
+    // =========================================================
     const keys = {};
+
     window.addEventListener("keydown", (e) => {
       keys[e.key] = true;
       if (e.key === "r" || e.key === "R") resetCamera();
     });
+
     window.addEventListener("keyup", (e) => {
       keys[e.key] = false;
     });
 
+    // =========================================================
+    // 【37】スティックUI描画
+    // =========================================================
     function drawTouchUI() {
       const groundBase = getGroundStickBase();
       const screenBase = getScreenStickBase();
@@ -1456,6 +1644,10 @@ ${coordText}`;
       drawStick(lookBase, l.knobX, l.knobY, "rgba(100,180,255,0.45)", "rgba(100,180,255,0.28)");
     }
 
+    // =========================================================
+    // 【38】カメラ更新
+    // 【38-1】PCキー + 仮想スティック入力でカメラを動かす
+    // =========================================================
     function updateCamera() {
       const { forward, right, up } = getCameraBasis();
 
@@ -1463,6 +1655,7 @@ ${coordText}`;
       const verticalSpeed = 0.08;
       const rotateSpeed = 0.025;
 
+      // --- PCキー操作 ---
       if (keys["ArrowUp"]) camera.position = add(camera.position, mul(forward, moveSpeed));
       if (keys["ArrowDown"]) camera.position = add(camera.position, mul(forward, -moveSpeed));
       if (keys["ArrowLeft"]) camera.position = add(camera.position, mul(right, -moveSpeed));
@@ -1474,6 +1667,7 @@ ${coordText}`;
       if (keys["w"] || keys["W"]) camera.pitch += rotateSpeed;
       if (keys["s"] || keys["S"]) camera.pitch -= rotateSpeed;
 
+      // --- スティック入力をカーブ補正 ---
       const groundInputX = applyStickCurve(touchState.groundX, 0.08, 2.8);
       const groundInputY = applyStickCurve(touchState.groundY, 0.08, 2.8);
       const screenInputX = applyStickCurve(touchState.screenX, 0.08, 2.8);
@@ -1481,30 +1675,40 @@ ${coordText}`;
       const lookInputX = applyStickCurve(touchState.lookX, 0.10, 3.2);
       const lookInputY = applyStickCurve(touchState.lookY, 0.10, 3.2);
 
+      // --- 地面平行移動用ベクトル ---
       const flatForward = normalize(vec(forward.x, 0, forward.z));
       const flatRight = normalize(vec(right.x, 0, right.z));
 
+      // 左下下スティック: 地面平行移動
       if (touchState.groundId !== null) {
         camera.position = add(camera.position, mul(flatRight, groundInputX * moveSpeed));
         camera.position = add(camera.position, mul(flatForward, -groundInputY * moveSpeed));
       }
 
+      // 左下上スティック: 画面基準の上下左右移動
       if (touchState.screenId !== null) {
         camera.position = add(camera.position, mul(right, screenInputX * moveSpeed * 0.5));
         camera.position = add(camera.position, mul(up, -screenInputY * moveSpeed * 0.5));
       }
 
+      // 右スティック: 視点回転
       if (touchState.lookId !== null) {
         const stickLookSpeed = 0.01;
         camera.yaw -= lookInputX * stickLookSpeed;
         camera.pitch -= lookInputY * stickLookSpeed;
       }
 
+      // 真上・真下に行きすぎないよう制限
       const limit = Math.PI / 2 - 0.05;
       if (camera.pitch > limit) camera.pitch = limit;
       if (camera.pitch < -limit) camera.pitch = -limit;
     }
 
+    // =========================================================
+    // 【39】メインループ
+    // 【39-1】毎フレームの処理順:
+    //   入力更新 → 背景 → 地面 → 軸 → 平面 → 接続 → ノード → ギズモ → UI
+    // =========================================================
     function loop() {
       updateCamera();
       drawBackground();
@@ -1519,6 +1723,9 @@ ${coordText}`;
       requestAnimationFrame(loop);
     }
 
+    // =========================================================
+    // 【40】初期化
+    // =========================================================
     resetButton.addEventListener("click", resetCamera);
     resetButton.addEventListener("touchstart", (e) => {
       e.preventDefault();
