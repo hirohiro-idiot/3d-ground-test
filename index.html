@@ -285,6 +285,8 @@
       <button id="toggleEditorButton" class="uiButton">人形作成: ON</button>
       <button id="toggleEditorPanelButton" class="uiButton">編集パネル: ON</button>
       <button id="toggleStickOffsetButton" class="uiButton">スティック補正: ON</button>
+      <button id="modeSkeletonButton" class="uiButton">モード: 骨格作成 ●</button>
+      <button id="modeJointButton" class="uiButton">モード: 関節設定</button>
     </div>
     <button id="resetButton" class="uiButton">RESET</button>
   </div>
@@ -302,6 +304,7 @@ PC:
 左下 下スティック = 地面平行移動
 左下 上スティック = 画面基準の上下左右移動
 右スティック = 通常カメラ回転
+※ 関節設定モードでは右スティックが選択関節の軸回転調整になる
 
 エディタ:
 点や関節を追加すると仮配置モードに入る
@@ -311,6 +314,12 @@ PC:
 平面離脱でX方向移動を許可
 対称モードONなら反対側にも自動生成
 保存機能で名前をつけてモデル保存可能
+
+関節設定:
+ルートノードを設定可能
+接続ごとに親→子方向を設定可能
+選択関節の軸回転を調整可能
+設定固定ONで軸調整をロック
 
 参考画像:
 正面 = XY平面
@@ -419,6 +428,26 @@ OFF = 補正なし
       </div>
     </div>
 
+    <!-- [1-9-4-7] 関節設定 -->
+    <div id="jointSetupSection" class="collapsibleSection" style="display:none;">
+      <button class="sectionToggleButton">▼ 関節設定</button>
+      <div class="sectionContent">
+        <div class="buttonCol">
+          <button id="setRootButton" class="uiButton">選択ノードをルートに設定</button>
+          <button id="setEdgeDirectionButton" class="uiButton">選択2ノードを 親→子 に設定</button>
+
+          <button id="rotateJointAxisXPosButton" class="uiButton">軸X +5°</button>
+          <button id="rotateJointAxisXNegButton" class="uiButton">軸X -5°</button>
+          <button id="rotateJointAxisYPosButton" class="uiButton">軸Y +5°</button>
+          <button id="rotateJointAxisYNegButton" class="uiButton">軸Y -5°</button>
+          <button id="rotateJointAxisZPosButton" class="uiButton">軸Z +5°</button>
+          <button id="rotateJointAxisZNegButton" class="uiButton">軸Z -5°</button>
+
+          <button id="toggleJointLockButton" class="uiButton">関節設定固定: OFF</button>
+        </div>
+      </div>
+    </div>
+
     <!-- [1-9-4-6] 状態表示 -->
     <div id="editorStatus"></div>
   </div>
@@ -516,6 +545,20 @@ OFF = 補正なし
     const frontImageInput = document.getElementById("frontImageInput");
     const sideImageInput = document.getElementById("sideImageInput");
     const topImageInput = document.getElementById("topImageInput");
+
+    const modeSkeletonButton = document.getElementById("modeSkeletonButton");
+    const modeJointButton = document.getElementById("modeJointButton");
+
+    const jointSetupSection = document.getElementById("jointSetupSection");
+    const setRootButton = document.getElementById("setRootButton");
+    const setEdgeDirectionButton = document.getElementById("setEdgeDirectionButton");
+    const rotateJointAxisXPosButton = document.getElementById("rotateJointAxisXPosButton");
+    const rotateJointAxisXNegButton = document.getElementById("rotateJointAxisXNegButton");
+    const rotateJointAxisYPosButton = document.getElementById("rotateJointAxisYPosButton");
+    const rotateJointAxisYNegButton = document.getElementById("rotateJointAxisYNegButton");
+    const rotateJointAxisZPosButton = document.getElementById("rotateJointAxisZPosButton");
+    const rotateJointAxisZNegButton = document.getElementById("rotateJointAxisZNegButton");
+    const toggleJointLockButton = document.getElementById("toggleJointLockButton");
 
     /* =========================================================
        [1] UI / レイアウト
@@ -760,6 +803,23 @@ OFF = 補正なし
 
     /* =========================================================
        [3] エディタ本体
+       [3-1] UI状態フラグ
+       [3-1-3] アプリ上位モード
+       ========================================================= */
+    const appState = {
+      mainMode: "skeleton_edit"
+    };
+
+    function isSkeletonEditMode() {
+      return appState.mainMode === "skeleton_edit";
+    }
+
+    function isJointSetupMode() {
+      return appState.mainMode === "joint_setup";
+    }
+
+    /* =========================================================
+       [3] エディタ本体
        [3-2] モデルデータ
        [3-2-1] 採番
        [3-2-2] ノード
@@ -806,6 +866,15 @@ OFF = 補正なし
       x: 0,
       y: 1.5,
       z: 8
+    };
+
+    /* =========================================================
+       [3] エディタ本体
+       [3-4] 骨格全体設定
+       [3-4-2] ルートノード
+       ========================================================= */
+    const skeletonConfig = {
+      rootNodeId: null
     };
 
     /* =========================================================
@@ -965,6 +1034,7 @@ OFF = 補正なし
           mirrorValue: editorState.mirrorValue,
           planeConstraint: editorState.planeConstraint
         },
+        skeletonConfig: { ...skeletonConfig },
         referenceOrigin: { ...referenceOrigin },
         referenceImages: serializeReferenceImages()
       };
@@ -1000,6 +1070,12 @@ OFF = 補正なし
         editorState.showMirrorPlane = snapshot.editorState.showMirrorPlane !== false;
         editorState.mirrorValue = Number.isFinite(snapshot.editorState.mirrorValue) ? snapshot.editorState.mirrorValue : 0;
         editorState.planeConstraint = snapshot.editorState.planeConstraint !== false;
+      }
+
+      if (snapshot.skeletonConfig) {
+        skeletonConfig.rootNodeId = snapshot.skeletonConfig.rootNodeId ?? null;
+      } else {
+        skeletonConfig.rootNodeId = null;
       }
 
       if (snapshot.referenceOrigin) {
@@ -1163,6 +1239,27 @@ OFF = 補正なし
     /* =========================================================
        [3] エディタ本体
        [3-6] ノード追加
+       [3-6-0] 関節設定初期値
+       ========================================================= */
+    function createDefaultJointConfig(dof) {
+      return {
+        axisRotation: { x: 0, y: 0, z: 0 },
+
+        limitX: { min: -90, max: 90, enabled: dof >= 1 },
+        limitY: { min: -45, max: 45, enabled: dof >= 2 },
+        limitZ: { min: -30, max: 30, enabled: dof >= 3 },
+
+        currentX: 0,
+        currentY: 0,
+        currentZ: 0,
+
+        locked: false
+      };
+    }
+
+    /* =========================================================
+       [3] エディタ本体
+       [3-6] ノード追加
        [3-6-1] スポーン位置
        [3-6-2] ノードデータ生成
        [3-6-3] 追加本体
@@ -1183,7 +1280,8 @@ OFF = 補正なし
         z: p.z,
         isTemporary: true,
         mirrorPairId: null,
-        mirrored
+        mirrored,
+        jointConfig: type === "joint" ? createDefaultJointConfig(dof) : null
       };
     }
 
@@ -1314,7 +1412,15 @@ OFF = 補正なし
       if (selectedNodeIds.length !== 2) return;
       const [a, b] = selectedNodeIds;
       if (a === b || edgeExists(a, b)) return;
-      editorEdges.push({ id: nextEdgeId++, a, b });
+
+      editorEdges.push({
+        id: nextEdgeId++,
+        a,
+        b,
+        parentId: null,
+        childId: null
+      });
+
       updateEditorStatus();
     }
 
@@ -1339,6 +1445,12 @@ OFF = 補正なし
       clearSelection();
       updateCoordText();
       updateEditorStatus();
+    }
+
+    function getEdgeByNodePair(a, b) {
+      return editorEdges.find(e =>
+        (e.a === a && e.b === b) || (e.a === b && e.b === a)
+      ) || null;
     }
 
     /* =========================================================
@@ -1396,6 +1508,26 @@ OFF = 補正なし
        [3-11-2] 主対象座標
        [3-11-3] 各種モード反映
        ========================================================= */
+    function getStructureWarnings() {
+      let missingDirectionCount = 0;
+      for (const e of editorEdges) {
+        if (e.parentId == null || e.childId == null) missingDirectionCount++;
+      }
+
+      let missingJointConfigCount = 0;
+      for (const n of editorNodes) {
+        if (n.type === "joint" && !n.jointConfig) missingJointConfigCount++;
+      }
+
+      const rootMissing = skeletonConfig.rootNodeId == null;
+
+      return {
+        missingDirectionCount,
+        missingJointConfigCount,
+        rootMissing
+      };
+    }
+
     function updateEditorStatus() {
       const selectedText = selectedNodeIds.map(id => {
         const n = getNodeById(id);
@@ -1404,6 +1536,16 @@ OFF = 補正なし
       });
 
       const primary = editorState.placementMode ? getPlacementNode() : getPrimarySelectedNode();
+      const warnings = getStructureWarnings();
+
+      let jointInfo = "関節設定:\nなし";
+      if (primary && primary.type === "joint" && primary.jointConfig) {
+        jointInfo =
+`関節設定:
+axisRotation = (${primary.jointConfig.axisRotation.x.toFixed(1)}, ${primary.jointConfig.axisRotation.y.toFixed(1)}, ${primary.jointConfig.axisRotation.z.toFixed(1)})
+locked = ${primary.jointConfig.locked ? "ON" : "OFF"}`;
+      }
+
       const coordBlock = primary
         ? `主対象座標:
 x=${primary.x.toFixed(2)}
@@ -1434,8 +1576,19 @@ z=${referenceOrigin.z.toFixed(2)}`;
 軸操作: ${editorState.activeGizmoAxis || "なし"}
 画像編集: ${referenceEditMode ? "ON" : "OFF"}
 スティック補正: ${stickOffsetEnabled ? "ON" : "OFF"}
+アプリモード: ${isSkeletonEditMode() ? "骨格作成" : "関節設定"}
 
-${coordBlock}`;
+ルート:
+${skeletonConfig.rootNodeId == null ? "未設定" : `#${skeletonConfig.rootNodeId}`}
+
+未設定:
+ルート: ${warnings.rootMissing ? "未設定" : "設定済"}
+親子方向: ${warnings.missingDirectionCount}件
+関節設定: ${warnings.missingJointConfigCount}件
+
+${coordBlock}
+
+${jointInfo}`;
     }
 
     /* =========================================================
@@ -1464,6 +1617,8 @@ ${coordBlock}`;
       editorPanel.style.display = (editorEnabled && editorPanelEnabled) ? "block" : "none";
       coordPanel.style.display = coordPanelEnabled ? "block" : "none";
 
+      jointSetupSection.style.display = isJointSetupMode() ? "block" : "none";
+
       toggleInfoButton.textContent = `操作説明: ${infoEnabled ? "ON" : "OFF"}`;
       toggleEditorButton.textContent = `人形作成: ${editorEnabled ? "ON" : "OFF"}`;
       toggleEditorPanelButton.textContent = `編集パネル: ${editorPanelEnabled ? "ON" : "OFF"}`;
@@ -1474,6 +1629,16 @@ ${coordBlock}`;
       toggleStickOffsetButton.textContent = `スティック補正: ${stickOffsetEnabled ? "ON" : "OFF"}`;
       toggleCoordPanelButton.textContent = `座標一覧: ${coordPanelEnabled ? "ON" : "OFF"}`;
       toggleReferenceEditButton.textContent = `画像編集: ${referenceEditMode ? "ON" : "OFF"}`;
+
+      modeSkeletonButton.textContent = `モード: 骨格作成${isSkeletonEditMode() ? " ●" : ""}`;
+      modeJointButton.textContent = `モード: 関節設定${isJointSetupMode() ? " ●" : ""}`;
+
+      const jointNode = getPrimarySelectedNode();
+      if (jointNode && jointNode.type === "joint" && jointNode.jointConfig) {
+        toggleJointLockButton.textContent = `関節設定固定: ${jointNode.jointConfig.locked ? "ON" : "OFF"}`;
+      } else {
+        toggleJointLockButton.textContent = "関節設定固定: OFF";
+      }
 
       confirmPlacementButton.disabled = !editorState.placementMode;
       cancelPlacementButton.disabled = !editorState.placementMode;
@@ -1707,11 +1872,22 @@ ${coordBlock}`;
           ((selectedNodeIds[0] === edge.a && selectedNodeIds[1] === edge.b) ||
            (selectedNodeIds[0] === edge.b && selectedNodeIds[1] === edge.a));
 
+        let lineColor = "#aaaaaa";
+        let lineWidth = 2;
+
+        if (isSelectedPair) {
+          lineColor = "#ff66ff";
+          lineWidth = 3;
+        } else if (isJointSetupMode() && (edge.parentId == null || edge.childId == null)) {
+          lineColor = "#ff8844";
+          lineWidth = 3;
+        }
+
         drawLine3D(
           vec(a.x, a.y, a.z),
           vec(b.x, b.y, b.z),
-          isSelectedPair ? "#ff66ff" : "#aaaaaa",
-          isSelectedPair ? 3 : 2
+          lineColor,
+          lineWidth
         );
       }
     }
@@ -1723,6 +1899,7 @@ ${coordBlock}`;
         const p = vec(node.x, node.y, node.z);
 
         if (node.isTemporary) color = node.type === "point" ? "#ffddaa" : "#ffcc66";
+        if (skeletonConfig.rootNodeId === node.id) color = "#ff88ff";
 
         if (selected) {
           if (node.type === "point") drawSquare3D(p, "#ff4444", 14);
@@ -2156,7 +2333,7 @@ ${coordBlock}`;
         }
 
         const gizmoNode = getInteractiveGizmoNode();
-        if (editorEnabled && gizmoNode) {
+        if (editorEnabled && gizmoNode && isSkeletonEditMode()) {
           for (const t of e.changedTouches) {
             const adjustedY = t.clientY - touchOffsetY;
             const axis = pickGizmoAxisAtScreen(t.clientX, adjustedY, gizmoNode);
@@ -2242,7 +2419,8 @@ ${coordBlock}`;
             editorState.gizmoTouchId !== null &&
             t.identifier === editorState.gizmoTouchId &&
             interactiveNode &&
-            editorState.activeGizmoAxis
+            editorState.activeGizmoAxis &&
+            isSkeletonEditMode()
           ) {
             const adjustedY = t.clientY - touchOffsetY;
             const dx = t.clientX - editorState.gizmoLastX;
@@ -2403,7 +2581,7 @@ ${coordBlock}`;
        [7-5-2] スティック入力取得
        [7-5-3] 地面平行移動
        [7-5-4] 画面基準移動
-       [7-5-5] 視点回転
+       [7-5-5] 視点回転 / 関節軸回転
        [7-5-6] pitch制限
        ========================================================= */
     function updateCamera() {
@@ -2445,9 +2623,18 @@ ${coordBlock}`;
       }
 
       if (touchState.lookId !== null) {
-        const stickLookSpeed = 0.01;
-        camera.yaw -= lookInputX * stickLookSpeed;
-        camera.pitch -= lookInputY * stickLookSpeed;
+        if (isJointSetupMode()) {
+          const node = getPrimarySelectedNode();
+          if (node && node.type === "joint" && node.jointConfig && !node.jointConfig.locked) {
+            node.jointConfig.axisRotation.y += lookInputX * 2.5;
+            node.jointConfig.axisRotation.x += lookInputY * 2.5;
+            updateEditorStatus();
+          }
+        } else {
+          const stickLookSpeed = 0.01;
+          camera.yaw -= lookInputX * stickLookSpeed;
+          camera.pitch -= lookInputY * stickLookSpeed;
+        }
       }
 
       const limit = Math.PI / 2 - 0.05;
@@ -2577,7 +2764,7 @@ ${coordBlock}`;
     });
 
     toggleMoveModeButton.addEventListener("click", () => {
-      if (!editorEnabled) return;
+      if (!editorEnabled || !isSkeletonEditMode()) return;
       moveModeEnabled = !moveModeEnabled;
       editorState.activeGizmoAxis = null;
       editorState.gizmoTouchId = null;
@@ -2673,6 +2860,80 @@ ${coordBlock}`;
     toggleReferenceEditButton.addEventListener("click", () => {
       referenceEditMode = !referenceEditMode;
       if (!referenceEditMode) clearReferenceInteraction();
+      updatePanels();
+      updateEditorStatus();
+    });
+
+    modeSkeletonButton.addEventListener("click", () => {
+      appState.mainMode = "skeleton_edit";
+      updatePanels();
+      updateEditorStatus();
+    });
+
+    modeJointButton.addEventListener("click", () => {
+      appState.mainMode = "joint_setup";
+      moveModeEnabled = false;
+      editorState.activeGizmoAxis = null;
+      editorState.gizmoTouchId = null;
+      updatePanels();
+      updateEditorStatus();
+    });
+
+    setRootButton.addEventListener("click", () => {
+      const node = getPrimarySelectedNode();
+      if (!node) {
+        alert("ルートにしたいノードを1つ選択してください");
+        return;
+      }
+      skeletonConfig.rootNodeId = node.id;
+      updateEditorStatus();
+    });
+
+    setEdgeDirectionButton.addEventListener("click", () => {
+      if (selectedNodeIds.length !== 2) {
+        alert("親→子にしたい順で2ノード選択してください");
+        return;
+      }
+
+      const [parentId, childId] = selectedNodeIds;
+      const edge = getEdgeByNodePair(parentId, childId);
+      if (!edge) {
+        alert("その2ノードは接続されていません");
+        return;
+      }
+
+      edge.parentId = parentId;
+      edge.childId = childId;
+      updateEditorStatus();
+    });
+
+    function rotateSelectedJointAxis(axis, deltaDeg) {
+      const node = getPrimarySelectedNode();
+      if (!node || node.type !== "joint" || !node.jointConfig) {
+        alert("関節を1つ選択してください");
+        return;
+      }
+      if (node.jointConfig.locked) return;
+
+      node.jointConfig.axisRotation[axis] += deltaDeg;
+      updateEditorStatus();
+    }
+
+    rotateJointAxisXPosButton.addEventListener("click", () => rotateSelectedJointAxis("x", 5));
+    rotateJointAxisXNegButton.addEventListener("click", () => rotateSelectedJointAxis("x", -5));
+    rotateJointAxisYPosButton.addEventListener("click", () => rotateSelectedJointAxis("y", 5));
+    rotateJointAxisYNegButton.addEventListener("click", () => rotateSelectedJointAxis("y", -5));
+    rotateJointAxisZPosButton.addEventListener("click", () => rotateSelectedJointAxis("z", 5));
+    rotateJointAxisZNegButton.addEventListener("click", () => rotateSelectedJointAxis("z", -5));
+
+    toggleJointLockButton.addEventListener("click", () => {
+      const node = getPrimarySelectedNode();
+      if (!node || node.type !== "joint" || !node.jointConfig) {
+        alert("関節を1つ選択してください");
+        return;
+      }
+
+      node.jointConfig.locked = !node.jointConfig.locked;
       updatePanels();
       updateEditorStatus();
     });
