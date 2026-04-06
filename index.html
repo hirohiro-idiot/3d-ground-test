@@ -180,6 +180,7 @@ PC:
 スティック補正:
 ON = タッチ判定Yを少し上に補正
 OFF = 補正なし
+※ 点の移動ギズモにも同じ補正がかかる
   </div>
 
   <div id="editorPanel">
@@ -1117,12 +1118,13 @@ ${coordText}`;
         const gizmoNode = getInteractiveGizmoNode();
         if (editorEnabled && gizmoNode) {
           for (const t of e.changedTouches) {
-            const axis = pickGizmoAxisAtScreen(t.clientX, t.clientY, gizmoNode);
+            const adjustedY = t.clientY - touchOffsetY;
+            const axis = pickGizmoAxisAtScreen(t.clientX, adjustedY, gizmoNode);
             if (axis) {
               editorState.activeGizmoAxis = axis;
               editorState.gizmoTouchId = t.identifier;
               editorState.gizmoLastX = t.clientX;
-              editorState.gizmoLastY = t.clientY;
+              editorState.gizmoLastY = adjustedY;
               updateEditorStatus();
               return;
             }
@@ -1162,7 +1164,7 @@ ${coordText}`;
           }
           if (distLook <= STICK_TOUCH_RANGE && touchState.lookId === null) {
             touchState.lookId = t.identifier;
-            touchState.lookXPos = t.clientX;
+            touchState.lookXPos = t.identifier ? t.clientX : 0;
             touchState.lookYPos = adjustedLookY;
             continue;
           }
@@ -1173,6 +1175,7 @@ ${coordText}`;
         e.preventDefault();
 
         const interactiveNode = getInteractiveGizmoNode();
+        const touchOffsetY = getStickTouchOffsetY();
 
         for (const t of e.changedTouches) {
           if (
@@ -1181,8 +1184,9 @@ ${coordText}`;
             interactiveNode &&
             editorState.activeGizmoAxis
           ) {
+            const adjustedY = t.clientY - touchOffsetY;
             const dx = t.clientX - editorState.gizmoLastX;
-            const dy = t.clientY - editorState.gizmoLastY;
+            const dy = adjustedY - editorState.gizmoLastY;
 
             const dir = getProjectedGizmoAxisDirection(interactiveNode, editorState.activeGizmoAxis);
             if (dir) {
@@ -1191,7 +1195,7 @@ ${coordText}`;
             }
 
             editorState.gizmoLastX = t.clientX;
-            editorState.gizmoLastY = t.clientY;
+            editorState.gizmoLastY = adjustedY;
             continue;
           }
         }
@@ -1199,7 +1203,6 @@ ${coordText}`;
         const groundBase = getGroundStickBase();
         const screenBase = getScreenStickBase();
         const lookBase = getLookStickBase();
-        const touchOffsetY = getStickTouchOffsetY();
 
         for (const t of e.changedTouches) {
           if (t.identifier === touchState.groundId) {
