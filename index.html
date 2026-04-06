@@ -106,8 +106,8 @@
       position: absolute;
       top: 52px;
       right: 8px;
-      width: 168px;
-      max-width: 52vw;
+      width: 178px;
+      max-width: 54vw;
       color: white;
       background: rgba(0, 0, 0, 0.58);
       border: 1px solid rgba(255,255,255,0.18);
@@ -126,13 +126,7 @@
       font-weight: 600;
     }
 
-    #editorPanel .sectionTitle {
-      font-size: 11px;
-      opacity: 0.8;
-      margin: 10px 0 6px 0;
-    }
-
-    #editorPanel .buttonCol {
+    .buttonCol {
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -188,6 +182,40 @@
     .hiddenFileInput {
       display: none;
     }
+
+    .collapsibleSection {
+      margin-top: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .sectionToggleButton {
+      width: 100%;
+      pointer-events: auto;
+      border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.05);
+      color: white;
+      padding: 8px 10px;
+      font-size: 11px;
+      text-align: left;
+      user-select: none;
+    }
+
+    .sectionToggleButton:active {
+      background: rgba(255,255,255,0.12);
+    }
+
+    .sectionContent {
+      padding: 8px;
+      display: block;
+    }
+
+    .sectionContent.collapsed {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -238,63 +266,83 @@ OFF = 補正なし
   <div id="editorPanel">
     <h3>人形作成</h3>
 
-    <div class="sectionTitle">保存 / 読み込み</div>
-    <div class="buttonCol">
-      <input id="modelNameInput" type="text" placeholder="モデル名" class="uiTextInput" />
-      <button id="saveModelButton" class="uiButton">名前をつけて保存</button>
-      <button id="loadModelButton" class="uiButton">選択モデルを読み込み</button>
-      <button id="deleteModelButton" class="uiButton">選択モデルを削除</button>
-      <select id="savedModelsSelect" class="uiSelect"></select>
-    </div>
-
-    <div class="sectionTitle">ノード追加</div>
-    <div class="buttonCol">
-      <button id="addJoint1Button" class="uiButton">1自由度関節追加</button>
-      <button id="addJoint2Button" class="uiButton">2自由度関節追加</button>
-      <button id="addJoint3Button" class="uiButton">3自由度関節追加</button>
-      <button id="addPointButton" class="uiButton">点追加</button>
-    </div>
-
-    <div class="sectionTitle">編集</div>
-    <div class="buttonCol">
-      <button id="connectButton" class="uiButton">接続</button>
-      <button id="disconnectButton" class="uiButton">接続削除</button>
-      <button id="toggleMoveModeButton" class="uiButton">移動モード: OFF</button>
-      <button id="toggleSymmetryButton" class="uiButton">対称モード: OFF</button>
-      <button id="toggleMirrorPlaneButton" class="uiButton">対称平面表示: ON</button>
-      <button id="togglePlaneConstraintButton" class="uiButton">平面拘束: ON</button>
-      <button id="releasePlaneButton" class="uiButton">平面離脱</button>
-      <button id="confirmPlacementButton" class="uiButton">決定</button>
-      <button id="cancelPlacementButton" class="uiButton">キャンセル</button>
-      <button id="clearSelectionButton" class="uiButton">選択解除</button>
-      <button id="deleteSelectedButton" class="uiButton">選択削除</button>
-    </div>
-
-    <div class="sectionTitle">原点 / 座標</div>
-    <div class="buttonCol">
-      <button id="setOriginToPlaneCenterButton" class="uiButton">原点を対称平面中央へ</button>
-      <button id="setOriginToSelectedButton" class="uiButton">原点を選択ノードへ</button>
-      <button id="toggleCoordPanelButton" class="uiButton">座標一覧: OFF</button>
-      <button id="copyCoordTextButton" class="uiButton">座標一覧をコピー</button>
-    </div>
-
-    <div class="sectionTitle">参考画像</div>
-    <div class="buttonCol">
-      <button id="toggleReferenceEditButton" class="uiButton">画像編集: OFF</button>
-
-      <div class="inlineRow">
-        <button id="loadFrontImageButton" class="uiButton">正面画像</button>
-        <button id="clearFrontImageButton" class="uiButton">消去</button>
+    <div class="collapsibleSection">
+      <button id="toggleSaveLoadSectionButton" class="sectionToggleButton">▼ 保存 / 読み込み</button>
+      <div id="saveLoadSectionContent" class="sectionContent">
+        <div class="buttonCol">
+          <input id="modelNameInput" type="text" placeholder="モデル名" class="uiTextInput" />
+          <button id="saveModelButton" class="uiButton">名前をつけて保存</button>
+          <button id="loadModelButton" class="uiButton">選択モデルを読み込み</button>
+          <button id="deleteModelButton" class="uiButton">選択モデルを削除</button>
+          <select id="savedModelsSelect" class="uiSelect"></select>
+        </div>
       </div>
+    </div>
 
-      <div class="inlineRow">
-        <button id="loadSideImageButton" class="uiButton">横画像</button>
-        <button id="clearSideImageButton" class="uiButton">消去</button>
+    <div class="collapsibleSection">
+      <button id="toggleNodeSectionButton" class="sectionToggleButton">▼ ノード追加</button>
+      <div id="nodeSectionContent" class="sectionContent">
+        <div class="buttonCol">
+          <button id="addJoint1Button" class="uiButton">1自由度関節追加</button>
+          <button id="addJoint2Button" class="uiButton">2自由度関節追加</button>
+          <button id="addJoint3Button" class="uiButton">3自由度関節追加</button>
+          <button id="addPointButton" class="uiButton">点追加</button>
+        </div>
       </div>
+    </div>
 
-      <div class="inlineRow">
-        <button id="loadTopImageButton" class="uiButton">上画像</button>
-        <button id="clearTopImageButton" class="uiButton">消去</button>
+    <div class="collapsibleSection">
+      <button id="toggleEditSectionButton" class="sectionToggleButton">▼ 編集</button>
+      <div id="editSectionContent" class="sectionContent">
+        <div class="buttonCol">
+          <button id="connectButton" class="uiButton">接続</button>
+          <button id="disconnectButton" class="uiButton">接続削除</button>
+          <button id="toggleMoveModeButton" class="uiButton">移動モード: OFF</button>
+          <button id="toggleSymmetryButton" class="uiButton">対称モード: OFF</button>
+          <button id="toggleMirrorPlaneButton" class="uiButton">対称平面表示: ON</button>
+          <button id="togglePlaneConstraintButton" class="uiButton">平面拘束: ON</button>
+          <button id="releasePlaneButton" class="uiButton">平面離脱</button>
+          <button id="confirmPlacementButton" class="uiButton">決定</button>
+          <button id="cancelPlacementButton" class="uiButton">キャンセル</button>
+          <button id="clearSelectionButton" class="uiButton">選択解除</button>
+          <button id="deleteSelectedButton" class="uiButton">選択削除</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="collapsibleSection">
+      <button id="toggleOriginSectionButton" class="sectionToggleButton">▶ 原点 / 座標</button>
+      <div id="originSectionContent" class="sectionContent collapsed">
+        <div class="buttonCol">
+          <button id="setOriginToPlaneCenterButton" class="uiButton">原点を対称平面中央へ</button>
+          <button id="setOriginToSelectedButton" class="uiButton">原点を選択ノードへ</button>
+          <button id="toggleCoordPanelButton" class="uiButton">座標一覧: OFF</button>
+          <button id="copyCoordTextButton" class="uiButton">座標一覧をコピー</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="collapsibleSection">
+      <button id="toggleImageSectionButton" class="sectionToggleButton">▶ 参考画像</button>
+      <div id="imageSectionContent" class="sectionContent collapsed">
+        <div class="buttonCol">
+          <button id="toggleReferenceEditButton" class="uiButton">画像編集: OFF</button>
+
+          <div class="inlineRow">
+            <button id="loadFrontImageButton" class="uiButton">正面画像</button>
+            <button id="clearFrontImageButton" class="uiButton">消去</button>
+          </div>
+
+          <div class="inlineRow">
+            <button id="loadSideImageButton" class="uiButton">横画像</button>
+            <button id="clearSideImageButton" class="uiButton">消去</button>
+          </div>
+
+          <div class="inlineRow">
+            <button id="loadTopImageButton" class="uiButton">上画像</button>
+            <button id="clearTopImageButton" class="uiButton">消去</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -321,6 +369,18 @@ OFF = 補正なし
     const toggleStickOffsetButton = document.getElementById("toggleStickOffsetButton");
     const infoPanel = document.getElementById("info");
     const editorPanel = document.getElementById("editorPanel");
+
+    const toggleSaveLoadSectionButton = document.getElementById("toggleSaveLoadSectionButton");
+    const toggleNodeSectionButton = document.getElementById("toggleNodeSectionButton");
+    const toggleEditSectionButton = document.getElementById("toggleEditSectionButton");
+    const toggleOriginSectionButton = document.getElementById("toggleOriginSectionButton");
+    const toggleImageSectionButton = document.getElementById("toggleImageSectionButton");
+
+    const saveLoadSectionContent = document.getElementById("saveLoadSectionContent");
+    const nodeSectionContent = document.getElementById("nodeSectionContent");
+    const editSectionContent = document.getElementById("editSectionContent");
+    const originSectionContent = document.getElementById("originSectionContent");
+    const imageSectionContent = document.getElementById("imageSectionContent");
 
     const modelNameInput = document.getElementById("modelNameInput");
     const saveModelButton = document.getElementById("saveModelButton");
@@ -529,6 +589,14 @@ OFF = 補正なし
     let stickOffsetEnabled = true;
     let coordPanelEnabled = false;
     let referenceEditMode = false;
+
+    const sectionState = {
+      saveLoad: true,
+      node: true,
+      edit: true,
+      origin: false,
+      image: false
+    };
 
     let nextNodeId = 1;
     let nextEdgeId = 1;
@@ -1110,6 +1178,20 @@ z=${referenceOrigin.z.toFixed(2)}`;
 ${coordBlock}`;
     }
 
+    function updateSectionVisibility() {
+      saveLoadSectionContent.classList.toggle("collapsed", !sectionState.saveLoad);
+      nodeSectionContent.classList.toggle("collapsed", !sectionState.node);
+      editSectionContent.classList.toggle("collapsed", !sectionState.edit);
+      originSectionContent.classList.toggle("collapsed", !sectionState.origin);
+      imageSectionContent.classList.toggle("collapsed", !sectionState.image);
+
+      toggleSaveLoadSectionButton.textContent = `${sectionState.saveLoad ? "▼" : "▶"} 保存 / 読み込み`;
+      toggleNodeSectionButton.textContent = `${sectionState.node ? "▼" : "▶"} ノード追加`;
+      toggleEditSectionButton.textContent = `${sectionState.edit ? "▼" : "▶"} 編集`;
+      toggleOriginSectionButton.textContent = `${sectionState.origin ? "▼" : "▶"} 原点 / 座標`;
+      toggleImageSectionButton.textContent = `${sectionState.image ? "▼" : "▶"} 参考画像`;
+    }
+
     function updatePanels() {
       infoPanel.style.display = infoEnabled ? "block" : "none";
       editorPanel.style.display = (editorEnabled && editorPanelEnabled) ? "block" : "none";
@@ -1129,6 +1211,8 @@ ${coordBlock}`;
       confirmPlacementButton.disabled = !editorState.placementMode;
       cancelPlacementButton.disabled = !editorState.placementMode;
       releasePlaneButton.disabled = !editorState.planeConstraint;
+
+      updateSectionVisibility();
     }
 
     function getGizmoInfo(node) {
@@ -1656,7 +1740,7 @@ ${coordBlock}`;
 
     function getLookStickBase() {
       const panelVisible = editorEnabled && editorPanelEnabled;
-      const panelWidth = panelVisible ? 168 : 0;
+      const panelWidth = panelVisible ? 178 : 0;
       const marginRight = panelVisible ? (panelWidth + 76) : 78;
       return { x: canvas.width - marginRight, y: canvas.height - 150 };
     }
@@ -1912,6 +1996,31 @@ ${coordBlock}`;
       canvas.addEventListener("touchend", endTouch, { passive: false });
       canvas.addEventListener("touchcancel", endTouch, { passive: false });
     }
+
+    toggleSaveLoadSectionButton.addEventListener("click", () => {
+      sectionState.saveLoad = !sectionState.saveLoad;
+      updateSectionVisibility();
+    });
+
+    toggleNodeSectionButton.addEventListener("click", () => {
+      sectionState.node = !sectionState.node;
+      updateSectionVisibility();
+    });
+
+    toggleEditSectionButton.addEventListener("click", () => {
+      sectionState.edit = !sectionState.edit;
+      updateSectionVisibility();
+    });
+
+    toggleOriginSectionButton.addEventListener("click", () => {
+      sectionState.origin = !sectionState.origin;
+      updateSectionVisibility();
+    });
+
+    toggleImageSectionButton.addEventListener("click", () => {
+      sectionState.image = !sectionState.image;
+      updateSectionVisibility();
+    });
 
     toggleInfoButton.addEventListener("click", () => {
       infoEnabled = !infoEnabled;
